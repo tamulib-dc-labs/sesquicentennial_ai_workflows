@@ -182,20 +182,154 @@ class ClaudeWork(ClaudeBase):
         return "\n\n".join(just_the_text), full_response
     
     def get_metadata(self):
-        response = self.client.messages.create(
-            model="claude-3-5-haiku-20241022",
-            max_tokens=1000,
-            messages=[
-                {"role": "user", "content": self.prmopt}
-            ]
-        )
+        """Extract Dublin Core metadata from the letter text"""
+        try:
+            response = self.client.messages.create(
+                # TODO: Model should be defineable -- not hardcoded
+                model="claude-3-5-haiku-20241022",
+                max_tokens=1000,
+                messages=[
+                    {"role": "user", "content": self.prompt}
+                ]
+            )
+            
+            response_text = response.content[0].text.strip()
+            
+            # Extract JSON from response (Claude might include explanatory text)
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    metadata = json.loads(json_str)
+                    return response_text, metadata
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error in metadata: {e}")
+                    return response_text, {"error": "Could not parse JSON response"}
+            else:
+                print("No JSON object found in metadata response")
+                return response_text, {"error": "No JSON object found in response"}
+                
+        except Exception as e:
+            print(f"Error getting metadata: {str(e)}")
+            return "", {"error": str(e)}
     
+    def format_metadata_readable(self, metadata: Dict) -> str:
+        """Format Dublin Core metadata as human-readable report"""
+        if "error" in metadata:
+            return f"Error in metadata: {metadata['error']}"
+        
+        output = []
+        output.append("=" * 60)
+        output.append("DUBLIN CORE METADATA ANALYSIS")
+        output.append("=" * 60)
+        
+        # Core Dublin Core elements
+        dc = metadata.get('dublin_core', {})
+        
+        for element, data in dc.items():
+            if isinstance(data, dict) and data.get('value'):
+                output.append(f"\n{element.upper().replace('_', ' ')}:")
+                output.append(f"  Value: {data['value']}")
+                output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+                if data.get('reasoning'):
+                    output.append(f"  Reasoning: {data['reasoning']}")
+                if data.get('source_text'):
+                    source_text = data['source_text']
+                    if len(source_text) > 100:
+                        source_text = source_text[:100] + "..."
+                    output.append(f"  Source: \"{source_text}\"")
+        
+        # Additional elements
+        additional = metadata.get('additional_elements', {})
+        if additional:
+            output.append(f"\n{'=' * 30}")
+            output.append("ADDITIONAL ELEMENTS:")
+            output.append(f"{'=' * 30}")
+            
+            for element, data in additional.items():
+                if isinstance(data, dict) and data.get('value'):
+                    output.append(f"\n{element.upper().replace('_', ' ')}:")
+                    output.append(f"  {data['value']} (confidence: {data.get('confidence', 'unknown')})")
+        
+        # Flags and warnings
+        flags = metadata.get('flags', {})
+        if any(flags.values()):
+            output.append(f"\n{'=' * 30}")
+            output.append("REVIEW REQUIRED:")
+            output.append(f"{'=' * 30}")
+            
+            for flag_type, items in flags.items():
+                if items:
+                    output.append(f"\n{flag_type.replace('_', ' ').title()}:")
+                    for item in items:
+                        output.append(f"  • {item}")
+        
+        return "\n".join(output)
+    
+    def save_metadata(self, metadata: Dict, output_path: str = "metadata", formats: List[str] = ["json", "readable"]):
+        """Save metadata in various formats"""
+        if "error" in metadata:
+            print(f"Cannot save metadata due to error: {metadata['error']}")
+            return
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        if "json" in formats:
+            json_path = f"{output_path}_{timestamp}.json"
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+            print(f"Saved JSON metadata to: {json_path}")
+        
+        if "readable" in formats:
+            readable_path = f"{output_path}_{timestamp}.txt"
+            readable_text = self.format_metadata_readable(metadata)
+            with open(readable_path, 'w', encoding='utf-8') as f:
+                f.write(readable_text)
+            print(f"Saved readable metadata to: {readable_path}")
+        
+        if "csv" in formats:
+            csv_path = f"{output_path}_{timestamp}.csv"
+            self._save_metadata_csv(metadata, csv_path)
+            print(f"Saved CSV metadata to: {csv_path}")
+    
+    def _save_metadata_csv(self, metadata: Dict, filepath: str):
+        """Helper method to save metadata as CSV"""
+        import csv
+        
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Element', 'Value', 'Confidence', 'Reasoning', 'Source_Text'])
+            
+            dc = metadata.get('dublin_core', {})
+            for element, data in dc.items():
+                if isinstance(data, dict) and data.get('value'):
+                    value = data['value']
+                    if isinstance(value, list):
+                        value = '; '.join(str(v) for v in value)
+                    
+                    writer.writerow([
+                        element,
+                        str(value),
+                        data.get('confidence', ''),
+                        data.get('reasoning', ''),
+                        data.get('source_text', '')
+                    ])
+
 
 if __name__ == "__main__":
-    x = ClaudePage()
-    # y = x.encode_image("test_files/amctrial_mcinnis_0004.jpg")
-    # print(y)
-    # y = x.extract_text_with_claude("test_files/amctrial_mcinnis_0004.jpg")
-    # print(y)
-    # x = ClaudeBase()
-    # print(x.get_prompt("htr.md"))
+    # Define a set of pages for a work
+    pages = ["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]
+    work = ClaudeWork(pages=pages)
+    
+    # Let's print the HTR it found
+    print("Extracted text:")
+    print(work.full_text)
+    print("\n" + "="*50 + "\n")
+    
+    # Now, let's use that to get some good ole descriptive metadata and print it
+    raw_response, metadata = work.get_metadata()
+    print(work.format_metadata_readable(metadata))
+    
+    # Finally, let's save the output in every imaginable format
+    work.save_metadata(metadata, formats=["json", "readable", "csv"])
+    
