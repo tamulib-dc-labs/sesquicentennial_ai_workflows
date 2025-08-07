@@ -55,7 +55,121 @@ class ClaudeBase:
         with open(f'prompts/{prompt_file}', 'r') as f:
             text = f.read()
         return text
-
+    
+    def calculate_cost(self, usage_data=None, model_name=None):
+        """Calculate cost based on token usage and model.
+        
+        Args:
+            usage_data (dict, optional): Token usage data with 'input_tokens' and 'output_tokens'.
+                                       If None, uses self.last_response.usage
+            model_name (str, optional): Model name. If None, uses self.model_used
+            
+        Returns:
+            dict: Cost breakdown with input, output, and total costs in USD
+            
+        Raises:
+            ValueError: If usage data or model name cannot be determined
+        """
+        # Updated pricing as of August 2025 (per million tokens)
+        model_pricing = {
+            # Claude 4 family
+            "claude-4-opus": {
+                "input": 15.00,
+                "output": 75.00
+            },
+            "claude-4-sonnet": {
+                "input": 3.00,
+                "output": 15.00
+            },
+            "claude-sonnet-4-20250514": {  # Current Sonnet 4 model string
+                "input": 3.00,
+                "output": 15.00
+            },
+            
+            # Claude 3.5 family
+            "claude-3-5-sonnet-20241022": {
+                "input": 3.00,
+                "output": 15.00
+            },
+            "claude-3-5-sonnet-20240620": {
+                "input": 3.00,
+                "output": 15.00
+            },
+            "claude-3-5-haiku-20241022": {
+                "input": 0.80,
+                "output": 4.00
+            },
+            
+            # Claude 3 family (legacy)
+            "claude-3-opus-20240229": {
+                "input": 15.00,
+                "output": 75.00
+            },
+            "claude-3-sonnet-20240229": {
+                "input": 3.00,
+                "output": 15.00
+            },
+            "claude-3-haiku-20240307": {
+                "input": 0.25,
+                "output": 1.25
+            }
+        }
+        
+        # Determine usage data
+        if usage_data is None:
+            if hasattr(self, 'last_response') and self.last_response:
+                usage_data = self.last_response.usage.__dict__
+            else:
+                raise ValueError("No usage data provided and no last_response available")
+        
+        # Determine model name
+        if model_name is None:
+            if hasattr(self, 'model_used') and self.model_used:
+                model_name = self.model_used
+            else:
+                raise ValueError("No model name provided and no model_used available")
+        
+        # Check if model is supported
+        if model_name not in model_pricing:
+            available_models = list(model_pricing.keys())
+            raise ValueError(f"Model '{model_name}' not found in pricing table. "
+                           f"Available models: {available_models}")
+        
+        # Extract token counts
+        input_tokens = usage_data.get('input_tokens', 0)
+        output_tokens = usage_data.get('output_tokens', 0)
+        
+        if input_tokens == 0 and output_tokens == 0:
+            raise ValueError("Both input_tokens and output_tokens are 0")
+        
+        # Calculate costs (pricing is per million tokens)
+        pricing = model_pricing[model_name]
+        input_cost = (input_tokens / 1_000_000) * pricing['input']
+        output_cost = (output_tokens / 1_000_000) * pricing['output']
+        total_cost = input_cost + output_cost
+        
+        return {
+            'model': model_name,
+            'input_tokens': input_tokens,
+            'output_tokens': output_tokens,
+            'input_cost_usd': round(input_cost, 6),
+            'output_cost_usd': round(output_cost, 6),
+            'total_cost_usd': round(total_cost, 6),
+            'cost_per_token': {
+                'input': pricing['input'] / 1_000_000,
+                'output': pricing['output'] / 1_000_000
+            }
+        }
+    
+    def _store_response_data(self, response, model_name):
+        """Helper method to store response data for cost calculation.
+        
+        Args:
+            response: Anthropic API response object
+            model_name (str): Name of the model used
+        """
+        self.last_response = response
+        self.model_used = model_name
 
 class ClaudePage(ClaudeBase):
     """A Class to Represet Pages as Claude Requests"""
