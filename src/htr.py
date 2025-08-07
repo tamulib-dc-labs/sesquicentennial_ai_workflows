@@ -332,7 +332,7 @@ class ClaudeWork(ClaudeBase):
             response = self.client.messages.create(
                 model=model,
                 # TODO: tokens should be defineable -- not hardcoded
-                max_tokens=1000,
+                max_tokens=2000,
                 messages=[
                     {"role": "user", "content": self.prompt}
                 ]
@@ -342,6 +342,7 @@ class ClaudeWork(ClaudeBase):
             self._store_response_data(response, model)
 
             response_text = response.content[0].text.strip()
+            print(response_text)
             
             # Extract JSON from response (Claude might include explanatory text)
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
@@ -516,3 +517,14 @@ if __name__ == "__main__":
     # Finally, let's save the output in every imaginable format
     work.save_metadata(metadata, formats=["json", "readable", "csv"])
     
+    try:
+        cost_info = work.calculate_cost()
+        print(f"Cost Analysis:")
+        print(f"Model: {cost_info['model']}")
+        print(f"Input tokens: {cost_info['input_tokens']:,}")
+        print(f"Output tokens: {cost_info['output_tokens']:,}")
+        print(f"Input cost: ${cost_info['input_cost_usd']:.6f}")
+        print(f"Output cost: ${cost_info['output_cost_usd']:.6f}")
+        print(f"Total cost: ${cost_info['total_cost_usd']:.6f}")
+    except ValueError as e:
+        print(f"Could not calculate cost: {e}")
