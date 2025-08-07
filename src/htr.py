@@ -316,8 +316,11 @@ class ClaudeWork(ClaudeBase):
             full_response.append(claude_page_text[1])
         return "\n\n".join(just_the_text), full_response
     
-    def get_metadata(self):
+    def get_metadata(self, model: str = "claude-3-5-haiku-20241022"):
         """Extracts Dublin Core metadata from the letter text
+
+        Args:
+            model (str): The Claude Model to Use
         
         Returns:
             tuple: str (the response from Claude), dict (the metadata)
@@ -327,8 +330,7 @@ class ClaudeWork(ClaudeBase):
         """
         try:
             response = self.client.messages.create(
-                # TODO: Model should be defineable -- not hardcoded
-                model="claude-3-5-haiku-20241022",
+                model=model,
                 # TODO: tokens should be defineable -- not hardcoded
                 max_tokens=1000,
                 messages=[
@@ -336,6 +338,9 @@ class ClaudeWork(ClaudeBase):
                 ]
             )
             
+            # Store the Cost
+            self._store_response_data(response, model)
+
             response_text = response.content[0].text.strip()
             
             # Extract JSON from response (Claude might include explanatory text)
