@@ -199,11 +199,12 @@ class ClaudePage(ClaudeBase):
         media_type = media_type_map.get(suffix, 'image/jpeg')
         return image_data, media_type
 
-    def extract_text_with_claude(self, image_path: str) -> Tuple[str, Dict]:
+    def extract_text_with_claude(self, image_path: str, model: str = "claude-3-5-haiku-20241022") -> Tuple[str, Dict]:
         """Uses Claude AI to extract the contents of a handwritten document
         
         Args:
             image_path (str): The path to an image
+            model (str): The Claude model to use
 
         Returns:
             tuple: original response text, a dict with information about the response text
@@ -212,8 +213,7 @@ class ClaudePage(ClaudeBase):
             image_data, media_type = self.encode_image(image_path)
             
             message = self.client.messages.create(
-                # TODO: Model should be defineable -- not hardcoded
-                model="claude-3-5-haiku-20241022",
+                model=model,
                 max_tokens=1000,
                 messages=[
                     {
@@ -236,6 +236,8 @@ class ClaudePage(ClaudeBase):
                 ]
             )
             
+            # Store response data for cost calculation
+            self._store_response_data(message, model)
             
             response_text = message.content[0].text.strip()
             
