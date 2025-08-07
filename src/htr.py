@@ -1,16 +1,14 @@
 import os
-import sys
 import json
 import base64
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-import argparse
 import anthropic
 from PIL import Image
 import pandas as pd
 import re
-import ast
+import csv
 
 
 class ClaudeBase:
@@ -165,13 +163,34 @@ class ClaudePage(ClaudeBase):
 
 
 class ClaudeWork(ClaudeBase):
+    """Class to represent a Work with a Claude prompt
+    
+    Attributes:
+        pages (list): The individual canvases that make up a Claude work.
+        full_text (str): The full text of canvases according to Claude.
+        full_page_responses (list): A list of dicts with more information about the Claude full text response. 
+    
+    """
     def __init__(self, pages=None, api_key: Optional[str] = None):
+        """Generates a Claude Work.
+        
+        pages (None or list): Paths to each canvas image of the work ordered logically.
+        api_key (Optional[str] or None): Your Claude API Key.
+        """
         super().__init__(api_key)
         self.pages = pages if pages is not None else []
         self.full_text, self.full_page_responses = self.get_page_text()
         self.prompt = self.get_prompt("metadata.md").replace("[INSERT LETTER TEXT HERE]", self.full_text)
 
     def get_page_text(self):
+        """Gets the HTR page text from Claude based on canvas images.
+        
+        Returns:
+            tuple: The full text of all pages as a str and a list of dicts with more info about each page.
+
+        Example:
+            >>> ClaudeWork(["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]).get_page_text()
+        """
         just_the_text = []
         full_response = []
         for page in self.pages:
@@ -182,11 +201,19 @@ class ClaudeWork(ClaudeBase):
         return "\n\n".join(just_the_text), full_response
     
     def get_metadata(self):
-        """Extract Dublin Core metadata from the letter text"""
+        """Extracts Dublin Core metadata from the letter text
+        
+        Returns:
+            tuple: str (the response from Claude), dict (the metadata)
+
+        Example:
+            >>> ClaudeWork(["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]).get_metadata() 
+        """
         try:
             response = self.client.messages.create(
                 # TODO: Model should be defineable -- not hardcoded
                 model="claude-3-5-haiku-20241022",
+                # TODO: tokens should be defineable -- not hardcoded
                 max_tokens=1000,
                 messages=[
                     {"role": "user", "content": self.prompt}
@@ -214,7 +241,24 @@ class ClaudeWork(ClaudeBase):
             return "", {"error": str(e)}
     
     def format_metadata_readable(self, metadata: Dict) -> str:
-        """Format Dublin Core metadata as human-readable report"""
+        """Format Dublin Core metadata as human-readable report
+        
+        Args:
+            metadata(dict): The metadata from Claude as a dict
+
+        Returns:
+            str: The metadata output as a str separated by newlines.
+
+        Example:
+                >>> ClaudeWork(["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]).format_metadata_readable({
+                    "dublin_core": {
+                      "title": {
+                        "value": "Personal Letter from Bingley in Columbus, Texas, Describing Family Grief",
+                        "confidence": "high",
+                        "reasoning": "Derived from letter's content and personal narrative",
+                        "source_text": "Though I feel very little like writing you I much feel you the condition I am in"
+                    }})
+        """
         if "error" in metadata:
             return f"Error in metadata: {metadata['error']}"
         
@@ -267,7 +311,17 @@ class ClaudeWork(ClaudeBase):
         return "\n".join(output)
     
     def save_metadata(self, metadata: Dict, output_path: str = "metadata", formats: List[str] = ["json", "readable"]):
-        """Save metadata in various formats"""
+        """Save metadata in various formats
+        
+        Args:
+            metadata (dict): The metadata from claude
+            output_path (str): Where to save the metadata on disk
+            formats (list): The formats to save.
+
+        Returns:
+            None
+        
+        """
         if "error" in metadata:
             print(f"Cannot save metadata due to error: {metadata['error']}")
             return
@@ -293,8 +347,16 @@ class ClaudeWork(ClaudeBase):
             print(f"Saved CSV metadata to: {csv_path}")
     
     def _save_metadata_csv(self, metadata: Dict, filepath: str):
-        """Helper method to save metadata as CSV"""
-        import csv
+        """Helper method to save metadata as CSV
+        
+        Args:
+            metadata (dict): The metadata as a dict
+            filepath (str): The path to the csv on disk.
+        
+        Returns:
+            None
+
+        """
         
         with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
