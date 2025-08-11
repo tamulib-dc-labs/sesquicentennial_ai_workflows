@@ -9,6 +9,8 @@ and metadata generation.
 ## Sample Output using claude-3-5-haiku-20241022
 
 ```
+```
+```
 Extracted text:
 Columbus Texas
 June 16th 1858
@@ -29,7 +31,9 @@ I shall be the last of next week before I can return to the College then to rema
 
 Here's my metadata analysis of the historical letter:
 
-```json
+```
+```
+json
 {
   "dublin_core": {
     "title": {
@@ -114,6 +118,7 @@ Here's my metadata analysis of the historical letter:
     "requires_external_research": ["Precise provenance of letter"]
   }
 }
+```
 ```
 
 Key observations:
@@ -203,4 +208,6 @@ Output tokens: 889
 Input cost: $0.001555
 Output cost: $0.003556
 Total cost: $0.005111
+```
+```
 ```
