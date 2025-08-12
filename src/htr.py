@@ -514,7 +514,6 @@ if __name__ == "__main__":
     
     # Now, let's use that to get some good ole descriptive metadata and print it
     raw_response, metadata = work.get_metadata(
-        model="claude-sonnet-4-20250514"
     )
     print(work.format_metadata_readable(metadata))
     
