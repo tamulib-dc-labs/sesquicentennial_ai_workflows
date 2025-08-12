@@ -13,13 +13,14 @@ import csv
 
 class ClaudeBase:
     """A Base Class for Claude Requests"""
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
         """Initialize Claude client."""
         self.client = anthropic.Anthropic(
             api_key=api_key or os.environ.get(
                 "CLAUDE_API"
             )
         )
+        self.model = model
     
     def get_prompt(self, prompt_file):
         """A method to get the prompt text from a markdown file.
@@ -173,9 +174,10 @@ class ClaudeBase:
 
 class ClaudePage(ClaudeBase):
     """A Class to Represet Pages as Claude Requests"""
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
         super().__init__(api_key)
         self.prompt = self.get_prompt("htr.md")
+        self.model = model
 
     def encode_image(self, image_path: str) -> Tuple[str, str]:
         """Gets an image and returns a tuple with base64 encoding of the file contents and its media type
@@ -199,12 +201,11 @@ class ClaudePage(ClaudeBase):
         media_type = media_type_map.get(suffix, 'image/jpeg')
         return image_data, media_type
 
-    def extract_text_with_claude(self, image_path: str, model: str = "claude-3-5-haiku-20241022") -> Tuple[str, Dict]:
+    def extract_text_with_claude(self, image_path: str) -> Tuple[str, Dict]:
         """Uses Claude AI to extract the contents of a handwritten document
         
         Args:
             image_path (str): The path to an image
-            model (str): The Claude model to use
 
         Returns:
             tuple: original response text, a dict with information about the response text
@@ -213,7 +214,7 @@ class ClaudePage(ClaudeBase):
             image_data, media_type = self.encode_image(image_path)
             
             message = self.client.messages.create(
-                model=model,
+                model=self.model,
                 max_tokens=1000,
                 messages=[
                     {
@@ -237,7 +238,7 @@ class ClaudePage(ClaudeBase):
             )
             
             # Store response data for cost calculation
-            self._store_response_data(message, model)
+            self._store_response_data(message, self.model)
             
             response_text = message.content[0].text.strip()
             
@@ -287,7 +288,7 @@ class ClaudeWork(ClaudeBase):
         full_page_responses (list): A list of dicts with more information about the Claude full text response. 
     
     """
-    def __init__(self, pages=None, api_key: Optional[str] = None):
+    def __init__(self, pages=None, api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
         """Generates a Claude Work.
         
         pages (None or list): Paths to each canvas image of the work ordered logically.
@@ -295,6 +296,7 @@ class ClaudeWork(ClaudeBase):
         """
         super().__init__(api_key)
         self.pages = pages if pages is not None else []
+        self.model = model
         self.full_text, self.full_page_responses = self.get_page_text()
         self.prompt = self.get_prompt("metadata.md").replace("[INSERT LETTER TEXT HERE]", self.full_text)
 
@@ -310,7 +312,7 @@ class ClaudeWork(ClaudeBase):
         just_the_text = []
         full_response = []
         for page in self.pages:
-            claude_page = ClaudePage()
+            claude_page = ClaudePage(model=self.model)
             claude_page_text = claude_page.extract_text_with_claude(page)
             just_the_text.append(claude_page_text[0])
             full_response.append(claude_page_text[1])
@@ -511,7 +513,9 @@ if __name__ == "__main__":
     print("\n" + "="*50 + "\n")
     
     # Now, let's use that to get some good ole descriptive metadata and print it
-    raw_response, metadata = work.get_metadata()
+    raw_response, metadata = work.get_metadata(
+        model="claude-sonnet-4-20250514"
+    )
     print(work.format_metadata_readable(metadata))
     
     # Finally, let's save the output in every imaginable format
