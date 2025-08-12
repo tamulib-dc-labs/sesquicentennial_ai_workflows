@@ -211,3 +211,243 @@ Total cost: $0.005111
 ```
 ```
 ```
+
+
+## Sample Using Claude 4 Sonnet
+
+```
+```
+```
+Extracted text:
+Columbus Texas
+June 16th 1858
+
+Dear M[illegible],
+
+Though I feel very little alike writing you I much use you the condition I am in and the feelings I experience this eve be nothing more than a note. The news consisted in Houston, and I at would softly at home yesterday, at 2:10 9'mc. As I anticipated I found my father in the coldest state of excitement, and the deepest chars of sorrow agony. Tears with the greatest effort of my life that I controlled my overflowing grief sufficiently to become a comforter to him. At time, I may comfort him to some extent; myself to none. Grief is my portion of grief. I must bear. My little boys baby is still in the river or - but [illegible]
+
+not speak of the horrible thought! They have vainly sought the dear childly though now hopeless, in every place & manner. at first like a man adrift, yet I know I'm not penniless. In this I will send the rumination merely of my feelings. Please hand them in submitting the necessary remarks. Chanced it so happens that you leave before my return don't forget to give the key to the Bearer.
+
+I must return the last of this week but cannot if matters remain as they now are.
+
+I know that you appreciate my feelings enough to think nothing more of this futile attempt at commencing a letter. Give my regards to the Prof. especially our friend Dr. otherwise a medium through which I may send such matter, so may go the young ladies. Enough for the present.
+
+Kindly
+
+Tuesday the 18th on the day of punishing the storm were terrible, but was found in the river, some fifteen miles below. Some in a frightful condition, but we managed to get him home and provided matted. The rumored occurred yesterday morning at 10 o'clock. No notice of a funeral were notified but many persons were cut to witness the burial of my boy - then interred, now I hope safely at. Justice seems better reconciled since the recovery & burial of his little boy.
+
+I shall be the last of next week before I can return to the College then to remain not long. If you know of anything you want of me let me know by letter, or it it comes to your mind for late for that leave me a note on our table. Kindly
+
+==================================================
+
+```json
+{
+  "dublin_core": {
+    "title": {
+      "value": "Letter regarding the drowning death of a child in Columbus, Texas",
+      "confidence": "medium",
+      "reasoning": "No explicit title exists; constructed descriptive title based on main content theme",
+      "source_text": "My little boys baby is still in the river... but was found in the river, some fifteen miles below... the burial of my boy"
+    },
+    "creator": {
+      "value": "Unknown",
+      "confidence": "low",
+      "reasoning": "Letter is signed only with 'Kindly' which appears to be a closing rather than a signature; sender's name is not clearly identifiable",
+      "source_text": "Kindly"
+    },
+    "subject": {
+      "value": ["Death", "Drowning", "Grief", "Children--Death", "Texas--History--19th century"],
+      "authority": "lcsh",
+      "confidence": "medium",
+      "reasoning": "Selected LCSH terms based on the central themes of child death by drowning and grief. Standard LCSH format used for subdivisions.",
+      "source_text": "My little boys baby is still in the river... deepest chars of sorrow agony... Grief is my portion of grief... but was found in the river... the burial of my boy",
+      "alternative_headings": ["Family--Death", "Accidents"],
+      "authorization_uncertain": ["Children--Death"]
+    },
+    "description": {
+      "value": "Personal letter from Columbus, Texas describing the tragic drowning death of the writer's young son. The letter expresses profound grief and describes the search for and eventual recovery of the child's body from the river. Written during a time of family crisis and emotional distress.",
+      "confidence": "high",
+      "reasoning": "Clear narrative thread about child's drowning death, recovery of body, and burial",
+      "source_text": "My little boys baby is still in the river... They have vainly sought the dear childly... but was found in the river, some fifteen miles below... the burial of my boy"
+    },
+    "date": {
+      "value": "1858-06-16",
+      "confidence": "high",
+      "reasoning": "Date clearly stated at beginning of letter",
+      "source_text": "June 16th 1858"
+    },
+    "type": {
+      "value": "Text",
+      "qualifier": "Correspondence",
+      "confidence": "high",
+      "reasoning": "Format is clearly a personal letter with salutation, body, and closing"
+    },
+    "language": {
+      "value": "en",
+      "confidence": "high",
+      "reasoning": "Letter written in English throughout"
+    },
+    "coverage": {
+      "spatial": ["Columbus (Tex.)", "Houston (Tex.)"],
+      "temporal": "1858",
+      "confidence": "high",
+      "reasoning": "Columbus, Texas mentioned as location at letter head; Houston referenced in content",
+      "source_text": "Columbus Texas... The news consisted in Houston"
+    },
+    "contributor": {
+      "value": ["Unknown recipient (M[illegible])", "Father (mentioned)", "Prof. (mentioned)", "Dr. (mentioned)"],
+      "confidence": "low",
+      "reasoning": "Recipient's name is illegible; other persons mentioned but not fully identified",
+      "source_text": "Dear M[illegible]... Give my regards to the Prof. especially our friend Dr."
+    }
+  },
+  "additional_elements": {
+    "publisher": {
+      "value": "Not specified",
+      "confidence": "low",
+      "reasoning": "No repository or holding institution mentioned in the letter text"
+    },
+    "identifier": {
+      "value": "Not specified",
+      "confidence": "low",
+      "reasoning": "No catalog numbers or institutional identifiers present in the text"
+    },
+    "source": {
+      "value": "Not specified",
+      "confidence": "low",
+      "reasoning": "No collection or provenance information provided in the letter text"
+    },
+    "relation": {
+      "value": "Not specified",
+      "confidence": "low",
+      "reasoning": "No explicit references to other documents or series mentioned"
+    },
+    "rights": {
+      "value": "Not specified",
+      "confidence": "low",
+      "reasoning": "No copyright or access information determinable from letter content"
+    },
+    "format": {
+      "value": "Not specified",
+      "confidence": "low",
+      "reasoning": "Physical format not described in the provided text"
+    }
+  },
+  "flags": {
+    "ambiguous_dates": ["Tuesday the 18th - unclear which month/year but likely June 18, 1858"],
+    "uncertain_attributions": ["Creator identity unknown", "Recipient name illegible", "Mentioned persons not fully identified"],
+    "uncertain_lcsh_authorization": ["Children--Death may need verification against current authorized format"],
+    "requires_external_research": ["Creator identification", "Recipient identification", "Historical context of Columbus, Texas in 1858"],
+    "alternative_subjects": ["Family correspondence", "Personal narratives", "Nineteenth century Texas"]
+  }
+}
+```
+============================================================
+DUBLIN CORE METADATA ANALYSIS
+============================================================
+
+TITLE:
+  Value: Letter regarding the drowning death of a child in Columbus, Texas
+  Confidence: medium
+  Reasoning: No explicit title exists; constructed descriptive title based on main content theme
+  Source: "My little boys baby is still in the river... but was found in the river, some fifteen miles below......"
+
+CREATOR:
+  Value: Unknown
+  Confidence: low
+  Reasoning: Letter is signed only with 'Kindly' which appears to be a closing rather than a signature; sender's name is not clearly identifiable
+  Source: "Kindly"
+
+SUBJECT:
+  Value: ['Death', 'Drowning', 'Grief', 'Children--Death', 'Texas--History--19th century']
+  Confidence: medium
+  Reasoning: Selected LCSH terms based on the central themes of child death by drowning and grief. Standard LCSH format used for subdivisions.
+  Source: "My little boys baby is still in the river... deepest chars of sorrow agony... Grief is my portion of..."
+
+DESCRIPTION:
+  Value: Personal letter from Columbus, Texas describing the tragic drowning death of the writer's young son. The letter expresses profound grief and describes the search for and eventual recovery of the child's body from the river. Written during a time of family crisis and emotional distress.
+  Confidence: high
+  Reasoning: Clear narrative thread about child's drowning death, recovery of body, and burial
+  Source: "My little boys baby is still in the river... They have vainly sought the dear childly... but was fou..."
+
+DATE:
+  Value: 1858-06-16
+  Confidence: high
+  Reasoning: Date clearly stated at beginning of letter
+  Source: "June 16th 1858"
+
+TYPE:
+  Value: Text
+  Confidence: high
+  Reasoning: Format is clearly a personal letter with salutation, body, and closing
+
+LANGUAGE:
+  Value: en
+  Confidence: high
+  Reasoning: Letter written in English throughout
+
+CONTRIBUTOR:
+  Value: ['Unknown recipient (M[illegible])', 'Father (mentioned)', 'Prof. (mentioned)', 'Dr. (mentioned)']
+  Confidence: low
+  Reasoning: Recipient's name is illegible; other persons mentioned but not fully identified
+  Source: "Dear M[illegible]... Give my regards to the Prof. especially our friend Dr."
+
+==============================
+ADDITIONAL ELEMENTS:
+==============================
+
+PUBLISHER:
+  Not specified (confidence: low)
+
+IDENTIFIER:
+  Not specified (confidence: low)
+
+SOURCE:
+  Not specified (confidence: low)
+
+RELATION:
+  Not specified (confidence: low)
+
+RIGHTS:
+  Not specified (confidence: low)
+
+FORMAT:
+  Not specified (confidence: low)
+
+==============================
+REVIEW REQUIRED:
+==============================
+
+Ambiguous Dates:
+  • Tuesday the 18th - unclear which month/year but likely June 18, 1858
+
+Uncertain Attributions:
+  • Creator identity unknown
+  • Recipient name illegible
+  • Mentioned persons not fully identified
+
+Uncertain Lcsh Authorization:
+  • Children--Death may need verification against current authorized format
+
+Requires External Research:
+  • Creator identification
+  • Recipient identification
+  • Historical context of Columbus, Texas in 1858
+
+Alternative Subjects:
+  • Family correspondence
+  • Personal narratives
+  • Nineteenth century Texas
+Saved JSON metadata to: metadata_20250812_170119.json
+Saved readable metadata to: metadata_20250812_170119.txt
+Saved CSV metadata to: metadata_20250812_170119.csv
+Cost Analysis:
+Model: claude-sonnet-4-20250514
+Input tokens: 1,944
+Output tokens: 1,249
+Input cost: $0.005832
+Output cost: $0.018735
+Total cost: $0.024567
+```
+```
+```
