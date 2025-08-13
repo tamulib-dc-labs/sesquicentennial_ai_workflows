@@ -451,3 +451,198 @@ Total cost: $0.024567
 ```
 ```
 ```
+
+
+## Sample Output of an AV work based on contents of a WebVTT file and claude-3-5-haiku-20241022
+
+```
+```
+```
+```json
+{
+  "content_analysis": {
+    "media_type": "audio",
+    "content_category": "interview",
+    "primary_content_summary": "Interview with science fiction author Kevin O'Donnell, Jr. discussing his writing career, novels, and experiences",
+    "speakers_identified": ["Kevin O'Donnell, Jr.", "Interviewer"],
+    "key_topics_mentioned": [
+      "Science fiction writing", 
+      "Novel writing process", 
+      "Literary influences", 
+      "Science fiction genres", 
+      "Alien cultures"
+    ],
+    "dates_referenced": ["1966", "1972", "1973", "1974", "1975", "1976"],
+    "locations_mentioned": ["Cleveland", "Seoul", "Korea", "New Haven", "Yale"],
+    "duration_estimate": "Approximately 48 minutes"
+  },
+  "avalon_mods_metadata": {
+    "required_fields": {
+      "title": {
+        "value": "Kevin O'Donnell, Jr. Interview",
+        "confidence": "high",
+        "reasoning": "Standard interview title format",
+        "source_segments": ["The tape is rolling, so it's all on record now."]
+      },
+      "date_issued": {
+        "value": "2025-07-08",
+        "confidence": "high",
+        "reasoning": "Date from WebVTT file metadata",
+        "source_segments": ["File Creation Date: 2025-07-08"]
+      }
+    },
+    "core_descriptive": {
+      "main_contributor_creator": {
+        "value": ["O'Donnell, Kevin, Jr."],
+        "authority": "lcnaf",
+        "confidence": "high",
+        "reasoning": "Primary subject of the interview",
+        "source_segments": ["The entire transcript is about Kevin O'Donnell, Jr."]
+      },
+      "contributor": {
+        "value": ["Unnamed Interviewer"],
+        "confidence": "medium",
+        "reasoning": "Interviewer is present but not identified by name"
+      },
+      "genre": {
+        "value": ["Oral histories", "Author interviews"],
+        "authority": "lcsh",
+        "confidence": "high"
+      },
+      "publisher": {
+        "value": "Texas A&M University Libraries",
+        "confidence": "high",
+        "source_segments": ["Responsible Party: US, Texas A&M University Libraries"]
+      },
+      "summary_abstract": {
+        "value": "In-depth interview with science fiction author Kevin O'Donnell, Jr. discussing his writing career, novels including Bandersnatch and McGill Feighan series, and literary influences.",
+        "confidence": "high"
+      },
+      "language": {
+        "value": ["eng"],
+        "authority": "marc",
+        "confidence": "high"
+      }
+    },
+    "subject_access": {
+      "topical_subject": {
+        "value": [
+          "Science fiction literature",
+          "Authors, American",
+          "Science fiction writing"
+        ],
+        "authority": "lcsh",
+        "confidence": "high"
+      },
+      "geographic_subject": {
+        "value": ["United States"],
+        "authority": "tgn",
+        "confidence": "high"
+      }
+    },
+    "additional_fields": {
+      "notes": [
+        {
+          "note_type": "biographical/historical",
+          "note_value": "Interview discusses O'Donnell's development as a science fiction writer, including early influences and writing process",
+          "confidence": "high"
+        }
+      ]
+    }
+  }
+}
+```
+
+The metadata captures the key details of this interview with science fiction author Kevin O'Donnell, Jr., following Avalon's MODS metadata schema and utilizing appropriate controlled vocabularies.
+============================================================
+AVALON MODS METADATA ANALYSIS
+============================================================
+
+CONTENT ANALYSIS:
+  Media Type: audio
+  Content Category: interview
+  Duration Estimate: Approximately 48 minutes
+  Primary Content: Interview with science fiction author Kevin O'Donnell, Jr. discussing his writing career, novels, and experiences
+  Speakers: Kevin O'Donnell, Jr., Interviewer
+  Key Topics: Science fiction writing, Novel writing process, Literary influences, Science fiction genres, Alien cultures
+
+==============================
+REQUIRED FIELDS:
+==============================
+
+TITLE:
+  Value: Kevin O'Donnell, Jr. Interview
+  Confidence: high
+  Reasoning: Standard interview title format
+
+DATE ISSUED:
+  Value: 2025-07-08
+  Confidence: high
+  Reasoning: Date from WebVTT file metadata
+
+==============================
+CORE DESCRIPTIVE FIELDS:
+==============================
+
+MAIN CONTRIBUTOR CREATOR:
+  Value: O'Donnell, Kevin, Jr.
+  Confidence: high
+  Authority: lcnaf
+  Reasoning: Primary subject of the interview
+
+CONTRIBUTOR:
+  Value: Unnamed Interviewer
+  Confidence: medium
+  Reasoning: Interviewer is present but not identified by name
+
+GENRE:
+  Value: Oral histories; Author interviews
+  Confidence: high
+  Authority: lcsh
+
+PUBLISHER:
+  Value: Texas A&M University Libraries
+  Confidence: high
+
+SUMMARY ABSTRACT:
+  Value: In-depth interview with science fiction author Kevin O'Donnell, Jr. discussing his writing career, novels including Bandersnatch and McGill Feighan series, and literary influences.
+  Confidence: high
+
+LANGUAGE:
+  Value: eng
+  Confidence: high
+  Authority: marc
+
+==============================
+SUBJECT ACCESS:
+==============================
+
+TOPICAL SUBJECT:
+  Value: Science fiction literature; Authors, American; Science fiction writing
+  Confidence: high
+  Authority: lcsh
+
+GEOGRAPHIC SUBJECT:
+  Value: United States
+  Confidence: high
+  Authority: tgn
+
+==============================
+ADDITIONAL FIELDS:
+==============================
+
+NOTES:
+  Biographical/Historical: Interview discusses O'Donnell's development as a science fiction writer, including early influences and writing process
+Saved JSON metadata to: metadata_20250812_190636.json
+Saved readable metadata to: metadata_20250812_190636.txt
+Saved CSV metadata to: metadata_20250812_190636.csv
+Cost Analysis:
+Model: claude-3-5-haiku-20241022
+Input tokens: 15,134
+Output tokens: 959
+Input cost: $0.012107
+Output cost: $0.003836
+Total cost: $0.015943
+```
+```
+```
