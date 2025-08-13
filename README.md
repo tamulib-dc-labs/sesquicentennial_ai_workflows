@@ -240,7 +240,8 @@ I shall be the last of next week before I can return to the College then to rema
 
 ==================================================
 
-```json
+```
+```
 {
   "dublin_core": {
     "title": {
@@ -341,6 +342,7 @@ I shall be the last of next week before I can return to the College then to rema
     "alternative_subjects": ["Family correspondence", "Personal narratives", "Nineteenth century Texas"]
   }
 }
+```
 ```
 ============================================================
 DUBLIN CORE METADATA ANALYSIS
@@ -458,7 +460,9 @@ Total cost: $0.024567
 ```
 ```
 ```
-```json
+Sample output:
+```
+```
 {
   "content_analysis": {
     "media_type": "audio",
@@ -551,6 +555,7 @@ Total cost: $0.024567
     }
   }
 }
+```
 ```
 
 The metadata captures the key details of this interview with science fiction author Kevin O'Donnell, Jr., following Avalon's MODS metadata schema and utilizing appropriate controlled vocabularies.
