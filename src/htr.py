@@ -502,26 +502,448 @@ class ClaudeWork(ClaudeBase):
                     ])
 
 
+class ClaudeAV(ClaudeBase):
+    def __init__(
+            self, 
+            vtt_file, 
+            api_key: Optional[str] = None, 
+            model="claude-3-5-haiku-20241022"
+        ):
+        super().__init__(api_key)
+        self.model = model
+        self.full_text = self.get_full_text(
+            vtt_file
+            )
+        self.prompt = self.get_prompt(
+            "vtt-mods.md"
+        ).replace(
+            "[INSERT WEBVTT CONTENT HERE]", 
+            self.full_text
+        )
+        
+
+    def get_full_text(self, file_path):
+        with open(file_path, 'r') as my_vtt:
+            return my_vtt.read()
+
+    def get_metadata(self, model: str = "claude-3-5-haiku-20241022"):
+        try:
+            response = self.client.messages.create(
+                model=model,
+                # TODO: tokens should be definable -- not hardcoded
+                max_tokens=4000,  # Increased for more complex MODS structure
+                messages=[
+                    {"role": "user", "content": self.prompt}
+                ]
+            )
+            
+            # Store the Cost
+            self._store_response_data(response, model)
+
+            response_text = response.content[0].text.strip()
+            print(response_text)
+            
+            # Extract JSON from response since Claude might include explanatory text that will mess stuff up
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    metadata = json.loads(json_str)
+                    return response_text, metadata
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error in metadata: {e}")
+                    return response_text, {"error": "Could not parse JSON response"}
+            else:
+                print("No JSON object found in metadata response")
+                return response_text, {"error": "No JSON object found in response"}
+                
+        except Exception as e:
+            print(f"Error getting metadata: {str(e)}")
+            return "", {"error": str(e)}
+    
+    def format_metadata_readable(self, metadata: Dict) -> str:
+        if "error" in metadata:
+            return f"Error in metadata: {metadata['error']}"
+        
+        output = []
+        output.append("=" * 60)
+        output.append("AVALON MODS METADATA ANALYSIS")
+        output.append("=" * 60)
+        
+        content_analysis = metadata.get('content_analysis', {})
+        if content_analysis:
+            output.append(f"\nCONTENT ANALYSIS:")
+            output.append(f"  Media Type: {content_analysis.get('media_type', 'unknown')}")
+            output.append(f"  Content Category: {content_analysis.get('content_category', 'unknown')}")
+            output.append(f"  Duration Estimate: {content_analysis.get('duration_estimate', 'unknown')}")
+            output.append(f"  Primary Content: {content_analysis.get('primary_content_summary', 'N/A')}")
+            
+            if content_analysis.get('speakers_identified'):
+                output.append(f"  Speakers: {', '.join(content_analysis['speakers_identified'])}")
+            if content_analysis.get('key_topics_mentioned'):
+                output.append(f"  Key Topics: {', '.join(content_analysis['key_topics_mentioned'])}")
+
+        avalon_mods = metadata.get('avalon_mods_metadata', {})
+        
+        required_fields = avalon_mods.get('required_fields', {})
+        if required_fields:
+            output.append(f"\n{'=' * 30}")
+            output.append("REQUIRED FIELDS:")
+            output.append(f"{'=' * 30}")
+            
+            for field, data in required_fields.items():
+                if isinstance(data, dict) and data.get('value'):
+                    output.append(f"\n{field.upper().replace('_', ' ')}:")
+                    output.append(f"  Value: {data['value']}")
+                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+                    if data.get('reasoning'):
+                        output.append(f"  Reasoning: {data['reasoning']}")
+
+        core_descriptive = avalon_mods.get('core_descriptive', {})
+        if core_descriptive:
+            output.append(f"\n{'=' * 30}")
+            output.append("CORE DESCRIPTIVE FIELDS:")
+            output.append(f"{'=' * 30}")
+            
+            for field, data in core_descriptive.items():
+                if isinstance(data, dict) and data.get('value'):
+                    output.append(f"\n{field.upper().replace('_', ' ')}:")
+                    value = data['value']
+                    if isinstance(value, list):
+                        value = '; '.join(str(v) for v in value)
+                    output.append(f"  Value: {value}")
+                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+                    if data.get('authority'):
+                        output.append(f"  Authority: {data['authority']}")
+                    if data.get('reasoning'):
+                        output.append(f"  Reasoning: {data['reasoning']}")
+
+        subject_access = avalon_mods.get('subject_access', {})
+        if subject_access:
+            output.append(f"\n{'=' * 30}")
+            output.append("SUBJECT ACCESS:")
+            output.append(f"{'=' * 30}")
+            
+            for field, data in subject_access.items():
+                if isinstance(data, dict) and data.get('value'):
+                    output.append(f"\n{field.upper().replace('_', ' ')}:")
+                    value = data['value']
+                    if isinstance(value, list):
+                        value = '; '.join(str(v) for v in value)
+                    output.append(f"  Value: {value}")
+                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+                    if data.get('authority'):
+                        output.append(f"  Authority: {data['authority']}")
+
+        additional_fields = avalon_mods.get('additional_fields', {})
+        if additional_fields:
+            output.append(f"\n{'=' * 30}")
+            output.append("ADDITIONAL FIELDS:")
+            output.append(f"{'=' * 30}")
+            
+            for field, data in additional_fields.items():
+                if field == 'notes' and isinstance(data, list):
+                    output.append(f"\nNOTES:")
+                    for note in data:
+                        if note.get('note_value'):
+                            output.append(f"  {note.get('note_type', 'general').title()}: {note['note_value']}")
+                elif isinstance(data, dict) and data.get('value'):
+                    output.append(f"\n{field.upper().replace('_', ' ')}:")
+                    output.append(f"  Value: {data['value']}")
+                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+
+        quality = metadata.get('quality_assessment', {})
+        if quality:
+            output.append(f"\n{'=' * 30}")
+            output.append("QUALITY ASSESSMENT:")
+            output.append(f"{'=' * 30}")
+            
+            for field, value in quality.items():
+                if value:
+                    output.append(f"\n{field.replace('_', ' ').title()}:")
+                    if isinstance(value, list):
+                        for item in value:
+                            output.append(f"  • {item}")
+                    else:
+                        output.append(f"  {value}")
+
+        flags = metadata.get('validation_flags', {})
+        if any(flags.values()):
+            output.append(f"\n{'=' * 30}")
+            output.append("VALIDATION FLAGS:")
+            output.append(f"{'=' * 30}")
+            
+            for flag_type, items in flags.items():
+                if items:
+                    output.append(f"\n{flag_type.replace('_', ' ').title()}:")
+                    for item in items:
+                        output.append(f"  • {item}")
+        
+        return "\n".join(output)
+    
+    def save_metadata(self, metadata: Dict, output_path: str = "metadata", formats: List[str] = ["json", "readable"]):
+        """Save metadata in various formats
+        
+        Args:
+            metadata (dict): The metadata from claude
+            output_path (str): Where to save the metadata on disk
+            formats (list): The formats to save.
+
+        Returns:
+            None
+        
+        """
+        if "error" in metadata:
+            print(f"Cannot save metadata due to error: {metadata['error']}")
+            return
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        if "json" in formats:
+            json_path = f"{output_path}_{timestamp}.json"
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+            print(f"Saved JSON metadata to: {json_path}")
+        
+        if "readable" in formats:
+            readable_path = f"{output_path}_{timestamp}.txt"
+            readable_text = self.format_metadata_readable(metadata)
+            with open(readable_path, 'w', encoding='utf-8') as f:
+                f.write(readable_text)
+            print(f"Saved readable metadata to: {readable_path}")
+        
+        if "csv" in formats:
+            csv_path = f"{output_path}_{timestamp}.csv"
+            self._save_metadata_csv(metadata, csv_path)
+            print(f"Saved CSV metadata to: {csv_path}")
+
+        if "avalon_batch" in formats:
+            batch_path = f"{output_path}_{timestamp}_avalon_batch.csv"
+            self._save_avalon_batch_csv(metadata, batch_path)
+            print(f"Saved Avalon batch CSV to: {batch_path}")
+    
+    def _save_metadata_csv(self, metadata: Dict, filepath: str):        
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Section', 'Field', 'Value', 'Confidence', 'Authority', 'Reasoning'])
+            
+            avalon_mods = metadata.get('avalon_mods_metadata', {})
+            
+            sections = [
+                ('Required Fields', avalon_mods.get('required_fields', {})),
+                ('Core Descriptive', avalon_mods.get('core_descriptive', {})),
+                ('Subject Access', avalon_mods.get('subject_access', {})),
+                ('Additional Fields', avalon_mods.get('additional_fields', {}))
+            ]
+            
+            for section_name, section_data in sections:
+                for field, data in section_data.items():
+                    if field == 'notes' and isinstance(data, list):
+                        for note in data:
+                            if note.get('note_value'):
+                                writer.writerow([
+                                    section_name,
+                                    f"note_{note.get('note_type', 'general')}",
+                                    note['note_value'],
+                                    note.get('confidence', ''),
+                                    '',
+                                    note.get('reasoning', '')
+                                ])
+                    elif isinstance(data, dict) and data.get('value'):
+                        value = data['value']
+                        if isinstance(value, list):
+                            value = '; '.join(str(v) for v in value)
+                        
+                        writer.writerow([
+                            section_name,
+                            field,
+                            str(value),
+                            data.get('confidence', ''),
+                            data.get('authority', ''),
+                            data.get('reasoning', '')
+                        ])
+
+    def _save_avalon_batch_csv(self, metadata: Dict, filepath: str):
+        """Save metadata in Avalon batch import CSV format"""
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            headers = [
+                'Title', 'Creator', 'Contributor', 'Genre', 'Publisher', 
+                'Date Created', 'Date Issued', 'Abstract', 'Language',
+                'Physical Description', 'Series', 'Related Item Label', 'Related Item URL',
+                'Topical Subject', 'Geographic Subject', 'Temporal Subject',
+                'Table of Contents', 'Statement of Responsibility', 'Note', 'Note Type',
+                'Terms of Use'
+            ]
+            
+            writer = csv.writer(csvfile)
+            writer.writerow(headers)
+            
+            avalon_mods = metadata.get('avalon_mods_metadata', {})
+            required = avalon_mods.get('required_fields', {})
+            core = avalon_mods.get('core_descriptive', {})
+            subjects = avalon_mods.get('subject_access', {})
+            additional = avalon_mods.get('additional_fields', {})
+            
+            def get_field_value(field_data):
+                if isinstance(field_data, dict):
+                    value = field_data.get('value', '')
+                    if isinstance(value, list):
+                        return '; '.join(str(v) for v in value)
+                    return str(value) if value else ''
+                return ''
+            
+            row = [
+                get_field_value(required.get('title', {})),
+                get_field_value(core.get('main_contributor_creator', {})),
+                get_field_value(core.get('contributor', {})),
+                get_field_value(core.get('genre', {})),
+                get_field_value(core.get('publisher', {})),
+                get_field_value(core.get('creation_date', {})),
+                get_field_value(required.get('date_issued', {})),
+                get_field_value(core.get('summary_abstract', {})),
+                get_field_value(core.get('language', {})),
+                get_field_value(additional.get('physical_description', {})),
+                get_field_value(additional.get('series', {})),
+                get_field_value(subjects.get('topical_subject', {})),
+                get_field_value(subjects.get('geographic_subject', {})),
+                get_field_value(subjects.get('temporal_subject', {})),
+                get_field_value(additional.get('table_of_contents', {})),
+                get_field_value(additional.get('statement_of_responsibility', {})),
+                '',  #TODO: Note - would need to combine multiple notes
+                '',  #TODO: Note Type - would need to handle multiple note types
+            ]
+            #TODO: Update original prompt to not include stuff we don't need to reduce tokens.
+            # Handle notes specially (combine into single field for simplicity)
+            notes_data = additional.get('notes', [])
+            if notes_data and isinstance(notes_data, list):
+                note_texts = []
+                note_types = []
+                for note in notes_data:
+                    if note.get('note_value'):
+                        note_texts.append(note['note_value'])
+                        note_types.append(note.get('note_type', 'general'))
+                
+                if note_texts:
+                    row[-3] = ' | '.join(note_texts)  # Note field
+                    row[-2] = ' | '.join(note_types)  # Note Type field
+            
+            writer.writerow(row)
+
+    def get_avalon_batch_template(self) -> Dict[str, str]:
+        """Return a template dictionary for Avalon batch import"""
+        return {
+            'Title': '',
+            'Creator': '',
+            'Contributor': '', 
+            'Genre': '',
+            'Publisher': '',
+            'Date Created': '',
+            'Date Issued': '',
+            'Abstract': '',
+            'Language': '',
+            'Physical Description': '',
+            'Series': '',
+            'Related Item Label': '',
+            'Related Item URL': '',
+            'Topical Subject': '',
+            'Geographic Subject': '',
+            'Temporal Subject': '',
+            'Table of Contents': '',
+            'Statement of Responsibility': '',
+            'Note': '',
+            'Note Type': '',
+            'Terms of Use': ''
+        }
+
+    def extract_avalon_fields(self, metadata: Dict) -> Dict[str, str]:
+        """Extract metadata into Avalon field format for easier processing"""
+        if "error" in metadata:
+            return {"error": metadata["error"]}
+        
+        avalon_fields = self.get_avalon_batch_template()
+        avalon_mods = metadata.get('avalon_mods_metadata', {})
+        
+        required = avalon_mods.get('required_fields', {})
+        core = avalon_mods.get('core_descriptive', {})
+        subjects = avalon_mods.get('subject_access', {})
+        additional = avalon_mods.get('additional_fields', {})
+        
+        def extract_value(field_data):
+            if isinstance(field_data, dict):
+                value = field_data.get('value', '')
+                if isinstance(value, list):
+                    return '; '.join(str(v) for v in value)
+                return str(value) if value else ''
+            return ''
+        
+        field_mapping = {
+            'Title': extract_value(required.get('title', {})),
+            'Creator': extract_value(core.get('main_contributor_creator', {})),
+            'Contributor': extract_value(core.get('contributor', {})),
+            'Genre': extract_value(core.get('genre', {})),
+            'Publisher': extract_value(core.get('publisher', {})),
+            'Date Created': extract_value(core.get('creation_date', {})),
+            'Date Issued': extract_value(required.get('date_issued', {})),
+            'Abstract': extract_value(core.get('summary_abstract', {})),
+            'Language': extract_value(core.get('language', {})),
+            'Physical Description': extract_value(additional.get('physical_description', {})),
+            'Series': extract_value(additional.get('series', {})),
+            'Topical Subject': extract_value(subjects.get('topical_subject', {})),
+            'Geographic Subject': extract_value(subjects.get('geographic_subject', {})),
+            'Temporal Subject': extract_value(subjects.get('temporal_subject', {})),
+            'Table of Contents': extract_value(additional.get('table_of_contents', {})),
+            'Statement of Responsibility': extract_value(additional.get('statement_of_responsibility', {}))
+        }
+        
+        for field, value in field_mapping.items():
+            if value:
+                avalon_fields[field] = value
+        
+        return avalon_fields
+
+
 if __name__ == "__main__":
-    # Define a set of pages for a work
-    pages = ["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]
-    work = ClaudeWork(pages=pages)
+
+    # # Define a set of pages for a work
+    # pages = ["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]
+    # work = ClaudeWork(pages=pages)
     
-    # Let's print the HTR it found
-    print("Extracted text:")
-    print(work.full_text)
-    print("\n" + "="*50 + "\n")
+    # # Let's print the HTR it found
+    # print("Extracted text:")
+    # print(work.full_text)
+    # print("\n" + "="*50 + "\n")
     
-    # Now, let's use that to get some good ole descriptive metadata and print it
-    raw_response, metadata = work.get_metadata(
+    # # Now, let's use that to get some good ole descriptive metadata and print it
+    # raw_response, metadata = work.get_metadata(
+    # )
+    # print(work.format_metadata_readable(metadata))
+    
+    # # Finally, let's save the output in every imaginable format
+    # work.save_metadata(metadata, formats=["json", "readable", "csv"])
+    
+    # try:
+    #     cost_info = work.calculate_cost()
+    #     print(f"Cost Analysis:")
+    #     print(f"Model: {cost_info['model']}")
+    #     print(f"Input tokens: {cost_info['input_tokens']:,}")
+    #     print(f"Output tokens: {cost_info['output_tokens']:,}")
+    #     print(f"Input cost: ${cost_info['input_cost_usd']:.6f}")
+    #     print(f"Output cost: ${cost_info['output_cost_usd']:.6f}")
+    #     print(f"Total cost: ${cost_info['total_cost_usd']:.6f}")
+    # except ValueError as e:
+    #     print(f"Could not calculate cost: {e}")
+
+    vtt_file = "/Users/mark.baggett/code/whisper-reviewer/vtts/c000507_004_018_access.caption.vtt"
+    av_work = ClaudeAV(vtt_file=vtt_file)
+    raw_response, metadata = av_work.get_metadata(
     )
-    print(work.format_metadata_readable(metadata))
+    print(av_work.format_metadata_readable(metadata))
     
     # Finally, let's save the output in every imaginable format
-    work.save_metadata(metadata, formats=["json", "readable", "csv"])
+    av_work.save_metadata(metadata, formats=["json", "readable", "csv"])
     
     try:
-        cost_info = work.calculate_cost()
+        cost_info = av_work.calculate_cost()
         print(f"Cost Analysis:")
         print(f"Model: {cost_info['model']}")
         print(f"Input tokens: {cost_info['input_tokens']:,}")
