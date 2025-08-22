@@ -6,7 +6,7 @@ documents for Sesquicentennial related works.
 This is a work in progress but the idea is to write prompts as markdown (you can see those in `prompts`) and use Claude for HTR
 and metadata generation.
 
-## Sample Output using claude-3-5-haiku-20241022
+## Sample Output of a Handwritten, Multi Page Letter using claude-3-5-haiku-20241022
 
 ```
 ```
@@ -213,7 +213,7 @@ Total cost: $0.005111
 ```
 
 
-## Sample Using Claude 4 Sonnet
+## Sample of a Handwritten, Multi Page Letter Using Claude 4 Sonnet
 
 ```
 ```
