@@ -542,7 +542,6 @@ class ClaudeAV(ClaudeBase):
             self._store_response_data(response, model)
 
             response_text = response.content[0].text.strip()
-            print(response_text)
             
             # Extract JSON from response since Claude might include explanatory text that will mess stuff up
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)

@@ -1,0 +1,1 @@
+from .generate import process_json_directory
