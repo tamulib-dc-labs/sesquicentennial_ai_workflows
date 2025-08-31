@@ -12,6 +12,7 @@ pillow = "^11.3.0"
 pandas = "^2.3.1"
 python-dateutil = "^2.9.0.post0"
 click = "^8.2.1"
+tqdm = "^4.67.1"
 
 [tool.poetry.scripts]
 batch_ai = "tamu_batch_ai.monet:cli"
