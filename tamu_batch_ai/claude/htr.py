@@ -172,6 +172,7 @@ class ClaudeBase:
         self.last_response = response
         self.model_used = model_name
 
+
 class ClaudePage(ClaudeBase):
     """A Class to Represet Pages as Claude Requests"""
     def __init__(self, api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
