@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "htr-amc-early"
+name = "tamu-batch-ai"
 version = "0.1.0"
 description = ""
 authors = ["Mark Baggett <markpbaggett@gmail.com>"]
@@ -11,7 +11,10 @@ anthropic = "^0.59.0"
 pillow = "^11.3.0"
 pandas = "^2.3.1"
 python-dateutil = "^2.9.0.post0"
+click = "^8.2.1"
 
+[tool.poetry.scripts]
+batch_ai = "tamu_batch_ai.monet:cli"
 
 [build-system]
 requires = ["poetry-core"]

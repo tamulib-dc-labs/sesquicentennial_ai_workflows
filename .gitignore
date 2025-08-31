@@ -1,3 +1,5 @@
 **/__pycache__/
 test_files/*
 prompts.json
+output/*
+.DS_Store/*
