@@ -940,7 +940,7 @@ if __name__ == "__main__":
     print(av_work.format_metadata_readable(metadata))
     
     # Finally, let's save the output in every imaginable format
-    av_work.save_metadata(metadata, formats=["json", "readable", "csv"])
+    av_work.save_metadata(metadata, formats=["json", "readable", "csv"], output_path=vtt_file.split('/')[-1].replace('.caption.vtt', ''). replace('.vtt', ''))
     
     try:
         cost_info = av_work.calculate_cost()
