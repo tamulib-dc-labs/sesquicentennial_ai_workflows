@@ -899,7 +899,541 @@ class ClaudeAV(ClaudeBase):
                 avalon_fields[field] = value
         
         return avalon_fields
+    
 
+class ClaudeImage(ClaudeBase):
+    """Class to represent an Image or Map with existing metadata for Claude analysis
+    
+    Attributes:
+        image_path (str): Path to the image file.
+        existing_metadata (str): The existing metadata for the image/map.
+        material_type (str): Type of material (MAP, PHOTOGRAPH, DRAWING, etc.).
+        prompt (str): The formatted Claude prompt with metadata inserted.
+    
+    """
+    def __init__(self, image_path: str = None, existing_metadata: str = "", 
+                 material_type: str = "IMAGE", api_key: Optional[str] = None, 
+                 model="claude-3-5-haiku-20241022"):
+        """Generates a Claude Image analysis object.
+        
+        Args:
+            image_path (str): Path to the image file (optional, for reference).
+            existing_metadata (str): The existing metadata text to analyze.
+            material_type (str): Type of material - MAP, PHOTOGRAPH, DRAWING, PAINTING, PRINT, etc.
+            api_key (Optional[str] or None): Your Claude API Key.
+            model (str): Claude model to use.
+        """
+        super().__init__(api_key)
+        self.image_path = image_path
+        self.existing_metadata = existing_metadata
+        self.material_type = material_type.upper()
+        self.model = model
+        self.prompt = self._format_prompt()
+
+    def _format_prompt(self):
+        """Format the prompt with existing metadata and material type
+        
+        Returns:
+            str: The formatted prompt ready for Claude
+        """
+        prompt_template = self.get_prompt("maps.md")
+        
+        formatted_prompt = prompt_template.replace("[INSERT EXISTING METADATA HERE]", self.existing_metadata)
+        formatted_prompt = formatted_prompt.replace("[MAP | PHOTOGRAPH | DRAWING | PAINTING | PRINT | OTHER IMAGE TYPE]", self.material_type)
+        
+        return formatted_prompt
+
+    def load_metadata_from_file(self, filepath: str, encoding: str = 'utf-8'):
+        """Load existing metadata from a file
+        
+        Args:
+            filepath (str): Path to the metadata file
+            encoding (str): File encoding (default utf-8)
+            
+        Returns:
+            None (updates self.existing_metadata and regenerates prompt)
+        """
+        try:
+            with open(filepath, 'r', encoding=encoding) as f:
+                self.existing_metadata = f.read()
+            self.prompt = self._format_prompt()
+            print(f"Loaded metadata from: {filepath}")
+        except Exception as e:
+            print(f"Error loading metadata file: {str(e)}")
+
+    def set_metadata(self, metadata_text: str):
+        """Set the existing metadata text directly
+        
+        Args:
+            metadata_text (str): The metadata text to analyze
+            
+        Returns:
+            None (updates self.existing_metadata and regenerates prompt)
+        """
+        self.existing_metadata = metadata_text
+        self.prompt = self._format_prompt()
+
+    def encode_image(self, image_path: str) -> Tuple[str, str]:
+        """Gets an image and returns a tuple with base64 encoding of the file contents and its media type
+        
+        Args:
+            image_path (str): The path to an image
+
+        Returns:
+            tuple: base64 encoded image contents, media type
+        """
+        with open(image_path, "rb") as image_file:
+            image_data = base64.b64encode(image_file.read()).decode('utf-8')
+        suffix = Path(image_path).suffix.lower()
+        media_type_map = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp'
+        }
+        media_type = media_type_map.get(suffix, 'image/jpeg')
+        return image_data, media_type
+
+    def analyze_image_with_metadata(self, image_path: str, model: str = None) -> Tuple[str, Dict]:
+        """Analyzes an image along with existing metadata to suggest Dublin Core elements
+        
+        Args:
+            image_path (str): The path to the image file
+            model (str): The Claude Model to Use (defaults to self.model)
+
+        Returns:
+            tuple: str (the response from Claude), dict (the metadata analysis)
+        """
+        if model is None:
+            model = self.model
+            
+        if not self.existing_metadata.strip():
+            return "", {"error": "No existing metadata provided for analysis"}
+            
+        try:
+            image_data, media_type = self.encode_image(image_path)
+            
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=3000,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": image_data
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": self.prompt
+                            }
+                        ]
+                    }
+                ]
+            )
+            
+            self._store_response_data(response, model)
+
+            response_text = response.content[0].text.strip()
+            
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    metadata = json.loads(json_str)
+                    return response_text, metadata
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error in metadata: {e}")
+                    return response_text, {"error": "Could not parse JSON response"}
+            else:
+                print("No JSON object found in metadata response")
+                return response_text, {"error": "No JSON object found in response"}
+                
+        except Exception as e:
+            print(f"Error analyzing image {image_path}: {str(e)}")
+            return "", {"error": str(e)}
+
+    def get_dublin_core_analysis(self, model: str = None):
+        """Analyzes existing metadata and suggests Dublin Core elements
+
+        Args:
+            model (str): The Claude Model to Use (defaults to self.model)
+        
+        Returns:
+            tuple: str (the response from Claude), dict (the metadata analysis)
+
+        Example:
+            >>> img = ClaudeImage(existing_metadata="Title: Map of Texas, 1845...", material_type="MAP")
+            >>> response, metadata = img.get_dublin_core_analysis()
+        """
+        if model is None:
+            model = self.model
+            
+        if not self.existing_metadata.strip():
+            return "", {"error": "No existing metadata provided for analysis"}
+            
+        try:
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=3000,
+                messages=[
+                    {"role": "user", "content": self.prompt}
+                ]
+            )
+            
+            self._store_response_data(response, model)
+
+            response_text = response.content[0].text.strip()
+            
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    metadata = json.loads(json_str)
+                    return response_text, metadata
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error in metadata: {e}")
+                    return response_text, {"error": "Could not parse JSON response"}
+            else:
+                print("No JSON object found in metadata response")
+                return response_text, {"error": "No JSON object found in response"}
+                
+        except Exception as e:
+            print(f"Error getting metadata analysis: {str(e)}")
+            return "", {"error": str(e)}
+
+    def format_metadata_readable(self, metadata: Dict) -> str:
+        """Format Dublin Core metadata analysis as human-readable report
+        
+        Args:
+            metadata(dict): The metadata analysis from Claude as a dict
+
+        Returns:
+            str: The metadata output as a formatted string
+
+        Example:
+            >>> img = ClaudeImage()
+            >>> response, metadata = img.get_dublin_core_analysis()
+            >>> print(img.format_metadata_readable(metadata))
+        """
+        if "error" in metadata:
+            return f"Error in metadata analysis: {metadata['error']}"
+        
+        output = []
+        output.append("=" * 70)
+        output.append(f"DUBLIN CORE METADATA ANALYSIS - {self.material_type}")
+        output.append("=" * 70)
+        
+        if self.image_path:
+            output.append(f"Image: {self.image_path}")
+            output.append("")
+        
+        dc = metadata.get('dublin_core', {})
+        
+        for element, data in dc.items():
+            if isinstance(data, dict) and data.get('value'):
+                output.append(f"\n{element.upper().replace('_', ' ')}:")
+                value = data['value']
+                if isinstance(value, list):
+                    output.append(f"  Value: {'; '.join(str(v) for v in value)}")
+                else:
+                    output.append(f"  Value: {value}")
+                output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+                
+                if data.get('authority'):
+                    authorities = data['authority'] if isinstance(data['authority'], list) else [data['authority']]
+                    output.append(f"  Authority: {', '.join(authorities)}")
+                    
+                if data.get('reasoning'):
+                    output.append(f"  Reasoning: {data['reasoning']}")
+                    
+                if data.get('source_metadata'):
+                    source_text = data['source_metadata']
+                    if len(source_text) > 100:
+                        source_text = source_text[:100] + "..."
+                    output.append(f"  Source: \"{source_text}\"")
+
+        specialized = metadata.get('specialized_elements', {})
+        if specialized:
+            output.append(f"\n{'=' * 40}")
+            output.append("SPECIALIZED ELEMENTS:")
+            output.append(f"{'=' * 40}")
+            
+            for element, data in specialized.items():
+                if isinstance(data, dict) and data.get('value'):
+                    output.append(f"\n{element.upper().replace('_', ' ')}:")
+                    output.append(f"  Value: {data['value']}")
+                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+                    if data.get('reasoning'):
+                        output.append(f"  Reasoning: {data['reasoning']}")
+
+        additional = metadata.get('additional_elements', {})
+        if additional:
+            output.append(f"\n{'=' * 40}")
+            output.append("ADDITIONAL ELEMENTS:")
+            output.append(f"{'=' * 40}")
+            
+            for element, data in additional.items():
+                if isinstance(data, dict) and data.get('value'):
+                    output.append(f"\n{element.upper().replace('_', ' ')}:")
+                    output.append(f"  Value: {data['value']}")
+                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
+                    if data.get('reasoning'):
+                        output.append(f"  Reasoning: {data['reasoning']}")
+        
+        flags = metadata.get('flags', {})
+        if any(flags.values()):
+            output.append(f"\n{'=' * 40}")
+            output.append("REVIEW REQUIRED:")
+            output.append(f"{'=' * 40}")
+            
+            for flag_type, items in flags.items():
+                if items:
+                    output.append(f"\n{flag_type.replace('_', ' ').title()}:")
+                    for item in items:
+                        output.append(f"  • {item}")
+        
+        return "\n".join(output)
+    
+    def save_analysis(self, metadata: Dict, output_path: str = "image_metadata_analysis", 
+                     formats: List[str] = ["json", "readable"]):
+        """Save metadata analysis in various formats
+        
+        Args:
+            metadata (dict): The metadata analysis from Claude
+            output_path (str): Base path for output files
+            formats (list): The formats to save ("json", "readable", "csv")
+
+        Returns:
+            None
+        """
+        if "error" in metadata:
+            print(f"Cannot save metadata due to error: {metadata['error']}")
+            return
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        material_suffix = self.material_type.lower()
+        
+        if "json" in formats:
+            json_path = f"{output_path}_{material_suffix}_{timestamp}.json"
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+            print(f"Saved JSON metadata to: {json_path}")
+        
+        if "readable" in formats:
+            readable_path = f"{output_path}_{material_suffix}_{timestamp}.txt"
+            readable_text = self.format_metadata_readable(metadata)
+            with open(readable_path, 'w', encoding='utf-8') as f:
+                f.write(readable_text)
+            print(f"Saved readable metadata to: {readable_path}")
+        
+        if "csv" in formats:
+            csv_path = f"{output_path}_{material_suffix}_{timestamp}.csv"
+            self._save_metadata_csv(metadata, csv_path)
+            print(f"Saved CSV metadata to: {csv_path}")
+
+    def _save_metadata_csv(self, metadata: Dict, filepath: str):
+        """Helper method to save metadata analysis as CSV
+        
+        Args:
+            metadata (dict): The metadata as a dict
+            filepath (str): The path to save the CSV file
+        
+        Returns:
+            None
+        """
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Section', 'Element', 'Value', 'Confidence', 'Authority', 'Reasoning', 'Source_Metadata'])
+            
+            # Dublin Core elements
+            dc = metadata.get('dublin_core', {})
+            for element, data in dc.items():
+                if isinstance(data, dict) and data.get('value'):
+                    value = data['value']
+                    if isinstance(value, list):
+                        value = '; '.join(str(v) for v in value)
+                    
+                    authority = data.get('authority', '')
+                    if isinstance(authority, list):
+                        authority = '; '.join(authority)
+                    
+                    writer.writerow([
+                        'dublin_core',
+                        element,
+                        str(value),
+                        data.get('confidence', ''),
+                        authority,
+                        data.get('reasoning', ''),
+                        data.get('source_metadata', '')
+                    ])
+            
+            specialized = metadata.get('specialized_elements', {})
+            for element, data in specialized.items():
+                if isinstance(data, dict) and data.get('value'):
+                    writer.writerow([
+                        'specialized',
+                        element,
+                        str(data['value']),
+                        data.get('confidence', ''),
+                        '',
+                        data.get('reasoning', ''),
+                        data.get('source_metadata', '')
+                    ])
+            
+            additional = metadata.get('additional_elements', {})
+            for element, data in additional.items():
+                if isinstance(data, dict) and data.get('value'):
+                    writer.writerow([
+                        'additional',
+                        element,
+                        str(data['value']),
+                        data.get('confidence', ''),
+                        '',
+                        data.get('reasoning', ''),
+                        ''
+                    ])
+
+    def analyze_image_only(self, image_path: str, descriptive_prompt: str = None, model: str = None) -> Tuple[str, Dict]:
+        """Analyzes an image without existing metadata to extract basic information
+        
+        Args:
+            image_path (str): The path to the image file
+            descriptive_prompt (str): Custom prompt for image analysis (optional)
+            model (str): The Claude Model to Use (defaults to self.model)
+
+        Returns:
+            tuple: str (the response from Claude), dict (the extracted information)
+        """
+        if model is None:
+            model = self.model
+            
+        if descriptive_prompt is None:
+            descriptive_prompt = f"""Please analyze this {self.material_type.lower()} and provide the following information in JSON format:
+
+{{
+  "title": "suggested descriptive title",
+  "description": "detailed description of what is shown",
+  "subject_matter": ["main subjects or topics depicted"],
+  "geographic_locations": ["any places that can be identified"],
+  "date_clues": ["any visible dates or time period indicators"],
+  "text_visible": ["any text, labels, or inscriptions visible"],
+  "technical_details": {{
+    "medium": "apparent medium or technique",
+    "condition": "visible condition notes",
+    "dimensions_apparent": "apparent size or format"
+  }},
+  "people_depicted": ["any people visible or identifiable"],
+  "notable_features": ["distinctive or significant elements"]
+}}
+
+Focus on what can be directly observed in the image."""
+            
+        try:
+            image_data, media_type = self.encode_image(image_path)
+            
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=2000,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": image_data
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": descriptive_prompt
+                            }
+                        ]
+                    }
+                ]
+            )
+            
+            # Store the Cost
+            self._store_response_data(response, model)
+
+            response_text = response.content[0].text.strip()
+            
+            # Extract JSON from response
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    analysis = json.loads(json_str)
+                    return response_text, analysis
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error in analysis: {e}")
+                    return response_text, {"error": "Could not parse JSON response"}
+            else:
+                print("No JSON object found in analysis response")
+                return response_text, {"error": "No JSON object found in response"}
+                
+        except Exception as e:
+            print(f"Error analyzing image {image_path}: {str(e)}")
+            return "", {"error": str(e)}
+
+    def batch_analyze_metadata(self, metadata_list: List[Dict], output_dir: str = "batch_analysis"):
+        """Analyze multiple metadata records in batch
+        
+        Args:
+            metadata_list (list): List of dicts with 'metadata' and optional 'material_type' keys
+            output_dir (str): Directory to save batch results
+            
+        Returns:
+            list: List of analysis results
+            
+        Example:
+            >>> img = ClaudeImage()
+            >>> metadata_batch = [
+            ...     {"metadata": "Title: Map of Texas...", "material_type": "MAP"},
+            ...     {"metadata": "Photographer: John Smith...", "material_type": "PHOTOGRAPH"}
+            ... ]
+            >>> results = img.batch_analyze_metadata(metadata_batch)
+        """
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+        
+        results = []
+        for i, item in enumerate(metadata_list):
+            print(f"Processing item {i+1}/{len(metadata_list)}...")
+            
+            self.set_metadata(item['metadata'])
+            if 'material_type' in item:
+                self.material_type = item['material_type'].upper()
+                self.prompt = self._format_prompt()
+            
+            response, analysis = self.get_dublin_core_analysis()
+            
+            if 'error' not in analysis:
+                output_path = os.path.join(output_dir, f"item_{i+1:03d}")
+                self.save_analysis(analysis, output_path, formats=["json"])
+            
+            results.append({
+                'item_number': i+1,
+                'material_type': self.material_type,
+                'response': response,
+                'analysis': analysis
+            })
+        
+        summary_path = os.path.join(output_dir, "batch_summary.json")
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"Batch analysis complete. Summary saved to: {summary_path}")
+        
+        return results
 
 if __name__ == "__main__":
 
@@ -932,23 +1466,36 @@ if __name__ == "__main__":
     # except ValueError as e:
     #     print(f"Could not calculate cost: {e}")
 
-    vtt_file = "/Users/mark.baggett/code/whisper-reviewer/vtts/c000507_004_018_access.caption.vtt"
-    av_work = ClaudeAV(vtt_file=vtt_file)
-    raw_response, metadata = av_work.get_metadata(
+    # vtt_file = "/Users/mark.baggett/code/whisper-reviewer/vtts/c000507_004_018_access.caption.vtt"
+    # av_work = ClaudeAV(vtt_file=vtt_file)
+    # raw_response, metadata = av_work.get_metadata(
+    # )
+    # print(av_work.format_metadata_readable(metadata))
+    
+    # # Finally, let's save the output in every imaginable format
+    # av_work.save_metadata(metadata, formats=["json", "readable", "csv"], output_path=vtt_file.split('/')[-1].replace('.caption.vtt', ''). replace('.vtt', ''))
+    
+    # try:
+    #     cost_info = av_work.calculate_cost()
+    #     print(f"Cost Analysis:")
+    #     print(f"Model: {cost_info['model']}")
+    #     print(f"Input tokens: {cost_info['input_tokens']:,}")
+    #     print(f"Output tokens: {cost_info['output_tokens']:,}")
+    #     print(f"Input cost: ${cost_info['input_cost_usd']:.6f}")
+    #     print(f"Output cost: ${cost_info['output_cost_usd']:.6f}")
+    #     print(f"Total cost: ${cost_info['total_cost_usd']:.6f}")
+    # except ValueError as e:
+    #     print(f"Could not calculate cost: {e}")
+
+    # Analyze image with existing metadata
+
+    img = ClaudeImage(
+        image_path="test.jpg",
+        existing_metadata="Title: To Belgium and back with the 79th Infantry Division, 31 Aug to 25 Oct, 1944, Theater: European",
+        material_type="MAP"
     )
-    print(av_work.format_metadata_readable(metadata))
-    
-    # Finally, let's save the output in every imaginable format
-    av_work.save_metadata(metadata, formats=["json", "readable", "csv"], output_path=vtt_file.split('/')[-1].replace('.caption.vtt', ''). replace('.vtt', ''))
-    
-    try:
-        cost_info = av_work.calculate_cost()
-        print(f"Cost Analysis:")
-        print(f"Model: {cost_info['model']}")
-        print(f"Input tokens: {cost_info['input_tokens']:,}")
-        print(f"Output tokens: {cost_info['output_tokens']:,}")
-        print(f"Input cost: ${cost_info['input_cost_usd']:.6f}")
-        print(f"Output cost: ${cost_info['output_cost_usd']:.6f}")
-        print(f"Total cost: ${cost_info['total_cost_usd']:.6f}")
-    except ValueError as e:
-        print(f"Could not calculate cost: {e}")
+    response, metadata = img.analyze_image_only("test.jpg")
+    print(metadata)
+
+    print(response)
+
