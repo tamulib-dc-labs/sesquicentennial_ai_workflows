@@ -24,15 +24,20 @@ def cli() -> None:
 )
 def describe_vtts(path_to_vtts, csv):
     total_cost = 0
-    os.makedirs("tmp", exist_ok=True)
+    os.makedirs(".tmp", exist_ok=True)
+    for filename in os.listdir(".tmp"):
+        filepath = os.path.join(".tmp", filename)
+        if os.path.isfile(filepath):
+            os.remove(filepath)
     for path, directories, files in os.walk(path_to_vtts):
         for file in tqdm(files):
             if '.vtt' in file:
                 av_work = ClaudeAV(vtt_file=f"{path}/{file}")
                 raw_response, metadata = av_work.get_metadata()
                 av_work.save_metadata(
-                    metadata, formats=["json"], 
-                    output_path=f"tmp/{file.split('/')[-1].replace('.caption.vtt', ''). replace('.vtt', '')}"
+                    metadata, 
+                    formats=["json"], 
+                    output_path=f".tmp/{file.split('/')[-1].replace('.caption.vtt', ''). replace('.vtt', '')}"
                 )
                 try:
                     cost = av_work.calculate_cost()
@@ -41,7 +46,7 @@ def describe_vtts(path_to_vtts, csv):
                     print("Could not calculate costs.")
     
     process_json_directory(
-        "tmp", 
+        ".tmp", 
         csv
     )
     print(f"Total cost estimates were approximately ${total_cost}.")
@@ -63,17 +68,24 @@ def describe_vtts(path_to_vtts, csv):
 )
 def describe_images_from_csv(input_csv, output_csv):
     total_cost = 0
-    os.makedirs("tmp", exist_ok=True)
+    os.makedirs(".tmp", exist_ok=True)
+    for filename in os.listdir(".tmp"):
+        filepath = os.path.join(".tmp", filename)
+        if os.path.isfile(filepath):
+            os.remove(filepath)
+    with open(input_csv, newline="") as f:
+        total_rows = sum(1 for _ in f) - 1 
     with open(input_csv, 'r') as my_csv:
         reader = DictReader(my_csv)
-        for row in tqdm(reader):
+        for row in tqdm(reader, total=total_rows):
             pages = row["Filenames"].split(' | ')
             work = ClaudeWork(pages=pages)
             raw_response, metadata = work.get_metadata()
+            metadata["full_text"] = work.full_page_responses
             work.save_metadata(
                 metadata,
                 formats=["json"],
-                output_path="tmp/metadata"
+                output_path=".tmp/metadata"
             )
             try:
                     cost = work.calculate_cost()
@@ -82,7 +94,26 @@ def describe_images_from_csv(input_csv, output_csv):
                 print("Could not calculate costs.")
     
     process_json_directory(
-        "tmp", 
+        ".tmp", 
         output_csv=output_csv
     )
     print(f"Total cost estimates were approximately ${total_cost}.")
+
+
+@cli.command(
+    "run_htr", help="Runs HTR on a set of pages and stores them as JSON"
+)
+@click.option(
+    "--input_csv",
+    "-i",
+    help="The path to the CSV containing related images",
+)
+@click.option(
+    "--output_json",
+    "-o",
+    help="The path to write the HTR and descriptive metadata. Must have files in a column called 'Filenames'.",
+    default="flattened.csv"
+)
+def generate_handwritten_text(input_csv, output_json):
+    total_cost = 0
+    
