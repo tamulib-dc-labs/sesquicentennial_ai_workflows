@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tamu-batch-ai"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Mark Baggett <markpbaggett@gmail.com>"]
 readme = "README.md"
@@ -13,6 +13,7 @@ pandas = "^2.3.1"
 python-dateutil = "^2.9.0.post0"
 click = "^8.2.1"
 tqdm = "^4.67.1"
+google-cloud-vision = "^3.10.2"
 
 [tool.poetry.scripts]
 batch_ai = "tamu_batch_ai.monet:cli"
