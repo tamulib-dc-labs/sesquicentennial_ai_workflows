@@ -5,10 +5,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import anthropic
-from PIL import Image
-import pandas as pd
 import re
 import csv
+import PyPDF2
 
 
 class ClaudeBase:
@@ -504,9 +503,9 @@ class ClaudeWork(ClaudeBase):
 
 class ClaudeAV(ClaudeBase):
     def __init__(
-            self, 
-            vtt_file, 
-            api_key: Optional[str] = None, 
+            self,
+            vtt_file,
+            api_key: Optional[str] = None,
             model="claude-3-5-haiku-20241022"
         ):
         super().__init__(api_key)
@@ -517,10 +516,10 @@ class ClaudeAV(ClaudeBase):
         self.prompt = self.get_prompt(
             "vtt-mods.md"
         ).replace(
-            "[INSERT WEBVTT CONTENT HERE]", 
+            "[INSERT WEBVTT CONTENT HERE]",
             self.full_text
         )
-        
+
 
     def get_full_text(self, file_path):
         with open(file_path, 'r') as my_vtt:
@@ -536,12 +535,12 @@ class ClaudeAV(ClaudeBase):
                     {"role": "user", "content": self.prompt}
                 ]
             )
-            
+
             # Store the Cost
             self._store_response_data(response, model)
 
             response_text = response.content[0].text.strip()
-            
+
             # Extract JSON from response since Claude might include explanatory text that will mess stuff up
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
@@ -555,20 +554,20 @@ class ClaudeAV(ClaudeBase):
             else:
                 print("No JSON object found in metadata response")
                 return response_text, {"error": "No JSON object found in response"}
-                
+
         except Exception as e:
             print(f"Error getting metadata: {str(e)}")
             return "", {"error": str(e)}
-    
+
     def format_metadata_readable(self, metadata: Dict) -> str:
         if "error" in metadata:
             return f"Error in metadata: {metadata['error']}"
-        
+
         output = []
         output.append("=" * 60)
         output.append("AVALON MODS METADATA ANALYSIS")
         output.append("=" * 60)
-        
+
         content_analysis = metadata.get('content_analysis', {})
         if content_analysis:
             output.append(f"\nCONTENT ANALYSIS:")
@@ -576,20 +575,20 @@ class ClaudeAV(ClaudeBase):
             output.append(f"  Content Category: {content_analysis.get('content_category', 'unknown')}")
             output.append(f"  Duration Estimate: {content_analysis.get('duration_estimate', 'unknown')}")
             output.append(f"  Primary Content: {content_analysis.get('primary_content_summary', 'N/A')}")
-            
+
             if content_analysis.get('speakers_identified'):
                 output.append(f"  Speakers: {', '.join(content_analysis['speakers_identified'])}")
             if content_analysis.get('key_topics_mentioned'):
                 output.append(f"  Key Topics: {', '.join(content_analysis['key_topics_mentioned'])}")
 
         avalon_mods = metadata.get('avalon_mods_metadata', {})
-        
+
         required_fields = avalon_mods.get('required_fields', {})
         if required_fields:
             output.append(f"\n{'=' * 30}")
             output.append("REQUIRED FIELDS:")
             output.append(f"{'=' * 30}")
-            
+
             for field, data in required_fields.items():
                 if isinstance(data, dict) and data.get('value'):
                     output.append(f"\n{field.upper().replace('_', ' ')}:")
@@ -603,7 +602,7 @@ class ClaudeAV(ClaudeBase):
             output.append(f"\n{'=' * 30}")
             output.append("CORE DESCRIPTIVE FIELDS:")
             output.append(f"{'=' * 30}")
-            
+
             for field, data in core_descriptive.items():
                 if isinstance(data, dict) and data.get('value'):
                     output.append(f"\n{field.upper().replace('_', ' ')}:")
@@ -622,7 +621,7 @@ class ClaudeAV(ClaudeBase):
             output.append(f"\n{'=' * 30}")
             output.append("SUBJECT ACCESS:")
             output.append(f"{'=' * 30}")
-            
+
             for field, data in subject_access.items():
                 if isinstance(data, dict) and data.get('value'):
                     output.append(f"\n{field.upper().replace('_', ' ')}:")
@@ -639,7 +638,7 @@ class ClaudeAV(ClaudeBase):
             output.append(f"\n{'=' * 30}")
             output.append("ADDITIONAL FIELDS:")
             output.append(f"{'=' * 30}")
-            
+
             for field, data in additional_fields.items():
                 if field == 'notes' and isinstance(data, list):
                     output.append(f"\nNOTES:")
@@ -656,7 +655,7 @@ class ClaudeAV(ClaudeBase):
             output.append(f"\n{'=' * 30}")
             output.append("QUALITY ASSESSMENT:")
             output.append(f"{'=' * 30}")
-            
+
             for field, value in quality.items():
                 if value:
                     output.append(f"\n{field.replace('_', ' ').title()}:")
@@ -671,18 +670,18 @@ class ClaudeAV(ClaudeBase):
             output.append(f"\n{'=' * 30}")
             output.append("VALIDATION FLAGS:")
             output.append(f"{'=' * 30}")
-            
+
             for flag_type, items in flags.items():
                 if items:
                     output.append(f"\n{flag_type.replace('_', ' ').title()}:")
                     for item in items:
                         output.append(f"  • {item}")
-        
+
         return "\n".join(output)
-    
+
     def save_metadata(self, metadata: Dict, output_path: str = "metadata", formats: List[str] = ["json", "readable"]):
         """Save metadata in various formats
-        
+
         Args:
             metadata (dict): The metadata from claude
             output_path (str): Where to save the metadata on disk
@@ -690,27 +689,27 @@ class ClaudeAV(ClaudeBase):
 
         Returns:
             None
-        
+
         """
         if "error" in metadata:
             print(f"Cannot save metadata due to error: {metadata['error']}")
             return
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         if "json" in formats:
             json_path = f"{output_path}_{timestamp}.json"
             with open(json_path, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2, ensure_ascii=False)
             print(f"Saved JSON metadata to: {json_path}")
-        
+
         if "readable" in formats:
             readable_path = f"{output_path}_{timestamp}.txt"
             readable_text = self.format_metadata_readable(metadata)
             with open(readable_path, 'w', encoding='utf-8') as f:
                 f.write(readable_text)
             print(f"Saved readable metadata to: {readable_path}")
-        
+
         if "csv" in formats:
             csv_path = f"{output_path}_{timestamp}.csv"
             self._save_metadata_csv(metadata, csv_path)
@@ -720,21 +719,21 @@ class ClaudeAV(ClaudeBase):
             batch_path = f"{output_path}_{timestamp}_avalon_batch.csv"
             self._save_avalon_batch_csv(metadata, batch_path)
             print(f"Saved Avalon batch CSV to: {batch_path}")
-    
-    def _save_metadata_csv(self, metadata: Dict, filepath: str):        
+
+    def _save_metadata_csv(self, metadata: Dict, filepath: str):
         with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Section', 'Field', 'Value', 'Confidence', 'Authority', 'Reasoning'])
-            
+
             avalon_mods = metadata.get('avalon_mods_metadata', {})
-            
+
             sections = [
                 ('Required Fields', avalon_mods.get('required_fields', {})),
                 ('Core Descriptive', avalon_mods.get('core_descriptive', {})),
                 ('Subject Access', avalon_mods.get('subject_access', {})),
                 ('Additional Fields', avalon_mods.get('additional_fields', {}))
             ]
-            
+
             for section_name, section_data in sections:
                 for field, data in section_data.items():
                     if field == 'notes' and isinstance(data, list):
@@ -752,7 +751,7 @@ class ClaudeAV(ClaudeBase):
                         value = data['value']
                         if isinstance(value, list):
                             value = '; '.join(str(v) for v in value)
-                        
+
                         writer.writerow([
                             section_name,
                             field,
@@ -766,23 +765,23 @@ class ClaudeAV(ClaudeBase):
         """Save metadata in Avalon batch import CSV format"""
         with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
             headers = [
-                'Title', 'Creator', 'Contributor', 'Genre', 'Publisher', 
+                'Title', 'Creator', 'Contributor', 'Genre', 'Publisher',
                 'Date Created', 'Date Issued', 'Abstract', 'Language',
                 'Physical Description', 'Series', 'Related Item Label', 'Related Item URL',
                 'Topical Subject', 'Geographic Subject', 'Temporal Subject',
                 'Table of Contents', 'Statement of Responsibility', 'Note', 'Note Type',
                 'Terms of Use'
             ]
-            
+
             writer = csv.writer(csvfile)
             writer.writerow(headers)
-            
+
             avalon_mods = metadata.get('avalon_mods_metadata', {})
             required = avalon_mods.get('required_fields', {})
             core = avalon_mods.get('core_descriptive', {})
             subjects = avalon_mods.get('subject_access', {})
             additional = avalon_mods.get('additional_fields', {})
-            
+
             def get_field_value(field_data):
                 if isinstance(field_data, dict):
                     value = field_data.get('value', '')
@@ -790,7 +789,7 @@ class ClaudeAV(ClaudeBase):
                         return '; '.join(str(v) for v in value)
                     return str(value) if value else ''
                 return ''
-            
+
             row = [
                 get_field_value(required.get('title', {})),
                 get_field_value(core.get('main_contributor_creator', {})),
@@ -821,11 +820,11 @@ class ClaudeAV(ClaudeBase):
                     if note.get('note_value'):
                         note_texts.append(note['note_value'])
                         note_types.append(note.get('note_type', 'general'))
-                
+
                 if note_texts:
                     row[-3] = ' | '.join(note_texts)  # Note field
                     row[-2] = ' | '.join(note_types)  # Note Type field
-            
+
             writer.writerow(row)
 
     def get_avalon_batch_template(self) -> Dict[str, str]:
@@ -833,7 +832,7 @@ class ClaudeAV(ClaudeBase):
         return {
             'Title': '',
             'Creator': '',
-            'Contributor': '', 
+            'Contributor': '',
             'Genre': '',
             'Publisher': '',
             'Date Created': '',
@@ -858,15 +857,15 @@ class ClaudeAV(ClaudeBase):
         """Extract metadata into Avalon field format for easier processing"""
         if "error" in metadata:
             return {"error": metadata["error"]}
-        
+
         avalon_fields = self.get_avalon_batch_template()
         avalon_mods = metadata.get('avalon_mods_metadata', {})
-        
+
         required = avalon_mods.get('required_fields', {})
         core = avalon_mods.get('core_descriptive', {})
         subjects = avalon_mods.get('subject_access', {})
         additional = avalon_mods.get('additional_fields', {})
-        
+
         def extract_value(field_data):
             if isinstance(field_data, dict):
                 value = field_data.get('value', '')
@@ -874,7 +873,7 @@ class ClaudeAV(ClaudeBase):
                     return '; '.join(str(v) for v in value)
                 return str(value) if value else ''
             return ''
-        
+
         field_mapping = {
             'Title': extract_value(required.get('title', {})),
             'Creator': extract_value(core.get('main_contributor_creator', {})),
@@ -893,11 +892,11 @@ class ClaudeAV(ClaudeBase):
             'Table of Contents': extract_value(additional.get('table_of_contents', {})),
             'Statement of Responsibility': extract_value(additional.get('statement_of_responsibility', {}))
         }
-        
+
         for field, value in field_mapping.items():
             if value:
                 avalon_fields[field] = value
-        
+
         return avalon_fields
     
 
@@ -1435,6 +1434,491 @@ Focus on what can be directly observed in the image."""
         
         return results
 
+
+class ClaudeArticle(ClaudeBase):
+    """Class to analyze scholarly article first pages and abstracts for creator and subject metadata
+
+    Attributes:
+        image_path (str): Path to the article first page image file.
+        existing_metadata (str): Any existing metadata for the article.
+        prompt (str): The formatted Claude prompt with metadata and image location inserted.
+    """
+
+    def __init__(self, image_path: str = None, existing_metadata: str = "",
+                 api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
+        """Generates a Claude Article analysis object.
+
+        Args:
+            image_path (str): Path to the article first page image.
+            existing_metadata (str): Any existing metadata text to supplement analysis.
+            api_key (Optional[str] or None): Your Claude API Key.
+            model (str): Claude model to use.
+        """
+        super().__init__(api_key)
+        self.image_path = image_path
+        self.existing_metadata = existing_metadata
+        self.model = model
+        self.prompt = self._format_prompt()
+
+    def _format_prompt(self):
+        """Format the prompt with existing metadata and image location
+
+        Returns:
+            str: The formatted prompt ready for Claude
+        """
+        # Get the article subject and creator prompt template
+        prompt_template = self.get_prompt("subjects_from_abstract.md")
+
+        # Replace placeholders with actual data
+        image_location = self.image_path if self.image_path else "Image will be provided"
+        formatted_prompt = prompt_template.replace("[INSERT IMAGE LOCATION]", image_location)
+        formatted_prompt = formatted_prompt.replace("[INSERT EXISTING METADATA]", self.existing_metadata)
+
+        return formatted_prompt
+
+    def load_metadata_from_file(self, filepath: str, encoding: str = 'utf-8'):
+        """Load existing metadata from a file
+
+        Args:
+            filepath (str): Path to the metadata file
+            encoding (str): File encoding (default utf-8)
+
+        Returns:
+            None (updates self.existing_metadata and regenerates prompt)
+        """
+        try:
+            with open(filepath, 'r', encoding=encoding) as f:
+                self.existing_metadata = f.read()
+            # Regenerate prompt with new metadata
+            self.prompt = self._format_prompt()
+            print(f"Loaded metadata from: {filepath}")
+        except Exception as e:
+            print(f"Error loading metadata file: {str(e)}")
+
+    def set_metadata(self, metadata_text: str):
+        """Set the existing metadata text directly
+
+        Args:
+            metadata_text (str): The metadata text to supplement analysis
+
+        Returns:
+            None (updates self.existing_metadata and regenerates prompt)
+        """
+        self.existing_metadata = metadata_text
+        self.prompt = self._format_prompt()
+
+    def encode_image(self, image_path: str) -> Tuple[str, str]:
+        """Gets an image and returns a tuple with base64 encoding of the file contents and its media type
+
+        Args:
+            image_path (str): The path to an image
+
+        Returns:
+            tuple: base64 encoded image contents, media type
+        """
+        with open(image_path, "rb") as image_file:
+            image_data = base64.b64encode(image_file.read()).decode('utf-8')
+        suffix = Path(image_path).suffix.lower()
+        media_type_map = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.pdf': 'application/pdf'
+        }
+        media_type = media_type_map.get(suffix, 'image/jpeg')
+        return image_data, media_type
+
+    def analyze_article(self, image_path: str = None, model: str = None) -> Tuple[str, Dict]:
+        """Analyzes article first page/abstract to extract creators and FAST subject headings
+
+        Args:
+            image_path (str): Path to article image (uses self.image_path if not provided)
+            model (str): The Claude Model to Use (defaults to self.model)
+
+        Returns:
+            tuple: str (the response from Claude), dict (the creator and subject analysis)
+
+        Example:
+            >>> article = ClaudeArticle(image_path="article_firstpage.jpg")
+            >>> response, metadata = article.analyze_article()
+        """
+        if model is None:
+            model = self.model
+
+        if image_path is None:
+            image_path = self.image_path
+
+        if not image_path:
+            return "", {"error": "No image path provided for analysis"}
+
+        try:
+            image_data, media_type = self.encode_image(image_path)
+
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=3000,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": image_data
+                                }
+                            },
+                            {
+                                "type": "text",
+                                "text": self.prompt
+                            }
+                        ]
+                    }
+                ]
+            )
+
+            # Store the Cost
+            self._store_response_data(response, model)
+
+            response_text = response.content[0].text.strip()
+
+            # Extract JSON from response
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    metadata = json.loads(json_str)
+                    return response_text, metadata
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error in metadata: {e}")
+                    return response_text, {"error": "Could not parse JSON response"}
+            else:
+                print("No JSON object found in metadata response")
+                return response_text, {"error": "No JSON object found in response"}
+
+        except Exception as e:
+            print(f"Error analyzing article {image_path}: {str(e)}")
+            return "", {"error": str(e)}
+
+    def format_metadata_readable(self, metadata: Dict) -> str:
+        """Format creator and subject analysis as human-readable report
+
+        Args:
+            metadata(dict): The metadata analysis from Claude as a dict
+
+        Returns:
+            str: The metadata output as a formatted string
+        """
+        if "error" in metadata:
+            return f"Error in metadata analysis: {metadata['error']}"
+
+        output = []
+        output.append("=" * 70)
+        output.append("ARTICLE CREATOR AND SUBJECT ANALYSIS")
+        output.append("=" * 70)
+
+        if self.image_path:
+            output.append(f"Article Image: {self.image_path}")
+            output.append("")
+
+        # Creator information
+        creator_data = metadata.get('creator', {})
+        if creator_data:
+            output.append(f"\n{'=' * 40}")
+            output.append("CREATORS:")
+            output.append(f"{'=' * 40}")
+
+            personal_creators = creator_data.get('personal_creators', [])
+            if personal_creators:
+                output.append("\nPersonal Creators:")
+                for creator in personal_creators:
+                    output.append(f"  • {creator.get('name', 'Unknown')}")
+                    output.append(f"    Format: {creator.get('name_format', 'unknown')}")
+                    output.append(f"    Confidence: {creator.get('confidence', 'unknown')}")
+                    if creator.get('reasoning'):
+                        output.append(f"    Reasoning: {creator['reasoning']}")
+
+            if creator_data.get('source_metadata'):
+                output.append(f"\n  Source: {creator_data['source_metadata']}")
+
+        # Subject/FAST analysis
+        subject_data = metadata.get('subject', {})
+        if subject_data:
+            output.append(f"\n{'=' * 40}")
+            output.append("FAST SUBJECT HEADINGS:")
+            output.append(f"{'=' * 40}")
+
+            fast_headings = subject_data.get('fast_headings', [])
+            if fast_headings:
+                for heading in fast_headings:
+                    output.append(f"\n  {heading.get('term', 'Unknown')}")
+                    output.append(f"    Facet: {heading.get('facet', 'unknown')}")
+                    if heading.get('fast_id'):
+                        output.append(f"    FAST ID: {heading['fast_id']}")
+                    output.append(f"    Confidence: {heading.get('confidence', 'unknown')}")
+                    if heading.get('reasoning'):
+                        output.append(f"    Reasoning: {heading['reasoning']}")
+                    if heading.get('source_in_text'):
+                        source = heading['source_in_text']
+                        if len(source) > 100:
+                            source = source[:100] + "..."
+                        output.append(f"    Source: \"{source}\"")
+
+            alternative_headings = subject_data.get('alternative_headings', [])
+            if alternative_headings:
+                output.append(f"\n  Alternative Headings Considered:")
+                for alt in alternative_headings:
+                    output.append(f"    • {alt.get('term', 'Unknown')}: {alt.get('reason_not_selected', 'N/A')}")
+
+        # FAST analysis by facet
+        fast_analysis = metadata.get('fast_analysis', {})
+        if fast_analysis:
+            output.append(f"\n{'=' * 40}")
+            output.append("FAST FACET ANALYSIS:")
+            output.append(f"{'=' * 40}")
+
+            facets = [
+                ('topical_facet', 'Topical'),
+                ('geographic_facet', 'Geographic'),
+                ('chronological_facet', 'Chronological'),
+                ('form_facet', 'Form/Genre'),
+                ('personal_facet', 'Personal Names'),
+                ('corporate_facet', 'Corporate Names')
+            ]
+
+            for facet_key, facet_name in facets:
+                facet_data = fast_analysis.get(facet_key, {})
+                if facet_data and facet_data.get('terms'):
+                    output.append(f"\n{facet_name}:")
+                    output.append(f"  Terms: {'; '.join(facet_data['terms'])}")
+                    output.append(f"  Confidence: {facet_data.get('confidence', 'unknown')}")
+
+                    # Special handling for specific facets
+                    if facet_key == 'topical_facet':
+                        if facet_data.get('primary_concepts'):
+                            output.append(f"  Primary Concepts: {'; '.join(facet_data['primary_concepts'])}")
+                        if facet_data.get('secondary_concepts'):
+                            output.append(f"  Secondary Concepts: {'; '.join(facet_data['secondary_concepts'])}")
+                    elif facet_key == 'geographic_facet' and facet_data.get('geographic_scope'):
+                        output.append(f"  Geographic Scope: {facet_data['geographic_scope']}")
+                    elif facet_key == 'chronological_facet' and facet_data.get('temporal_scope'):
+                        output.append(f"  Temporal Scope: {facet_data['temporal_scope']}")
+
+        # Flags and warnings
+        flags = metadata.get('flags', {})
+        if any(flags.values()):
+            output.append(f"\n{'=' * 40}")
+            output.append("REVIEW REQUIRED:")
+            output.append(f"{'=' * 40}")
+
+            for flag_type, items in flags.items():
+                if items:
+                    output.append(f"\n{flag_type.replace('_', ' ').title()}:")
+                    for item in items:
+                        output.append(f"  • {item}")
+
+        return "\n".join(output)
+
+    def save_analysis(self, metadata: Dict, output_path: str = "article_analysis",
+                      formats: List[str] = ["json", "readable"]):
+        """Save metadata analysis in various formats
+
+        Args:
+            metadata (dict): The metadata analysis from Claude
+            output_path (str): Base path for output files
+            formats (list): The formats to save ("json", "readable", "csv")
+
+        Returns:
+            None
+        """
+        if "error" in metadata:
+            print(f"Cannot save metadata due to error: {metadata['error']}")
+            return
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        if "json" in formats:
+            json_path = f"{output_path}_{timestamp}.json"
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+            print(f"Saved JSON metadata to: {json_path}")
+
+        if "readable" in formats:
+            readable_path = f"{output_path}_{timestamp}.txt"
+            readable_text = self.format_metadata_readable(metadata)
+            with open(readable_path, 'w', encoding='utf-8') as f:
+                f.write(readable_text)
+            print(f"Saved readable metadata to: {readable_path}")
+
+        if "csv" in formats:
+            csv_path = f"{output_path}_{timestamp}.csv"
+            self._save_metadata_csv(metadata, csv_path)
+            print(f"Saved CSV metadata to: {csv_path}")
+
+    def _save_metadata_csv(self, metadata: Dict, filepath: str):
+        """Helper method to save metadata analysis as CSV
+
+        Args:
+            metadata (dict): The metadata as a dict
+            filepath (str): The path to save the CSV file
+
+        Returns:
+            None
+        """
+        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+
+            # Creators section
+            writer.writerow(['CREATORS'])
+            writer.writerow(['Name', 'Format', 'Confidence', 'Reasoning'])
+
+            creator_data = metadata.get('creator', {})
+            personal_creators = creator_data.get('personal_creators', [])
+            for creator in personal_creators:
+                writer.writerow([
+                    creator.get('name', ''),
+                    creator.get('name_format', ''),
+                    creator.get('confidence', ''),
+                    creator.get('reasoning', '')
+                ])
+
+            writer.writerow([])  # Blank row
+
+            # FAST Subject Headings section
+            writer.writerow(['FAST SUBJECT HEADINGS'])
+            writer.writerow(['Term', 'Facet', 'FAST ID', 'Confidence', 'Reasoning', 'Source in Text'])
+
+            subject_data = metadata.get('subject', {})
+            fast_headings = subject_data.get('fast_headings', [])
+            for heading in fast_headings:
+                writer.writerow([
+                    heading.get('term', ''),
+                    heading.get('facet', ''),
+                    heading.get('fast_id', ''),
+                    heading.get('confidence', ''),
+                    heading.get('reasoning', ''),
+                    heading.get('source_in_text', '')
+                ])
+
+            writer.writerow([])  # Blank row
+
+            # FAST Facet Analysis section
+            writer.writerow(['FAST FACET ANALYSIS'])
+            writer.writerow(['Facet', 'Terms', 'Confidence', 'Additional Info'])
+
+            fast_analysis = metadata.get('fast_analysis', {})
+            facets = [
+                ('topical_facet', 'Topical'),
+                ('geographic_facet', 'Geographic'),
+                ('chronological_facet', 'Chronological'),
+                ('form_facet', 'Form/Genre'),
+                ('personal_facet', 'Personal Names'),
+                ('corporate_facet', 'Corporate Names')
+            ]
+
+            for facet_key, facet_name in facets:
+                facet_data = fast_analysis.get(facet_key, {})
+                if facet_data and facet_data.get('terms'):
+                    terms = '; '.join(facet_data['terms'])
+                    additional = ''
+                    if facet_key == 'topical_facet':
+                        primary = facet_data.get('primary_concepts', [])
+                        if primary:
+                            additional = f"Primary: {'; '.join(primary)}"
+                    elif facet_key == 'geographic_facet':
+                        additional = facet_data.get('geographic_scope', '')
+                    elif facet_key == 'chronological_facet':
+                        additional = facet_data.get('temporal_scope', '')
+
+                    writer.writerow([
+                        facet_name,
+                        terms,
+                        facet_data.get('confidence', ''),
+                        additional
+                    ])
+
+    def batch_analyze_articles(self, article_list: List[Dict], output_dir: str = "batch_analysis"):
+        """Analyze multiple articles in batch
+
+        Args:
+            article_list (list): List of dicts with 'image_path' and optional 'existing_metadata' keys
+            output_dir (str): Directory to save batch results
+
+        Returns:
+            list: List of analysis results
+
+        Example:
+            >>> article = ClaudeArticle()
+            >>> articles = [
+            ...     {"image_path": "article1.jpg", "existing_metadata": "Title: ..."},
+            ...     {"image_path": "article2.jpg"}
+            ... ]
+            >>> results = article.batch_analyze_articles(articles)
+        """
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+
+        results = []
+        for i, item in enumerate(article_list):
+            print(f"Processing article {i + 1}/{len(article_list)}...")
+
+            # Set metadata if provided
+            if 'existing_metadata' in item:
+                self.set_metadata(item['existing_metadata'])
+
+            # Analyze
+            response, analysis = self.analyze_article(item['image_path'])
+
+            # Save individual result
+            if 'error' not in analysis:
+                output_path = os.path.join(output_dir, f"article_{i + 1:03d}")
+                self.save_analysis(analysis, output_path, formats=["json"])
+
+            results.append({
+                'article_number': i + 1,
+                'image_path': item['image_path'],
+                'response': response,
+                'analysis': analysis
+            })
+
+        # Save batch summary
+        summary_path = os.path.join(output_dir, "batch_summary.json")
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"Batch analysis complete. Summary saved to: {summary_path}")
+
+        return results
+
+    def extract_fast_headings_only(self, metadata: Dict) -> List[str]:
+        """Extract just the FAST heading terms as a simple list
+
+        Args:
+            metadata (dict): The analysis metadata
+
+        Returns:
+            list: List of FAST heading strings
+        """
+        subject_data = metadata.get('subject', {})
+        fast_headings = subject_data.get('fast_headings', [])
+        return [heading.get('term') for heading in fast_headings if heading.get('term')]
+
+    def extract_creators_only(self, metadata: Dict) -> List[str]:
+        """Extract just the creator names as a simple list
+
+        Args:
+            metadata (dict): The analysis metadata
+
+        Returns:
+            list: List of creator name strings
+        """
+        creator_data = metadata.get('creator', {})
+        personal_creators = creator_data.get('personal_creators', [])
+        return [creator.get('name') for creator in personal_creators if creator.get('name')]
+
+
 if __name__ == "__main__":
 
     # # Define a set of pages for a work
@@ -1489,13 +1973,22 @@ if __name__ == "__main__":
 
     # Analyze image with existing metadata
 
-    img = ClaudeImage(
-        image_path="test.jpg",
-        existing_metadata="Title: To Belgium and back with the 79th Infantry Division, 31 Aug to 25 Oct, 1944, Theater: European",
-        material_type="MAP"
-    )
-    response, metadata = img.analyze_image_only("test.jpg")
-    print(metadata)
+    # img = ClaudeImage(
+    #     image_path="test.jpg",
+    #     existing_metadata="Title: To Belgium and back with the 79th Infantry Division, 31 Aug to 25 Oct, 1944, Theater: European",
+    #     material_type="MAP"
+    # )
+    # response, metadata = img.analyze_image_with_metadata("test.jpg")
+    # print(metadata)
+    #
+    # print(response)
 
-    print(response)
+    article = ClaudeArticle()
+    articles = [
+        {
+            "image_path": "/Users/mark.baggett/code/ancient_ojs_journals/thumbnails/310-1152-1-PB.png",
+            "existing_metadata": "The Rosenberg Library in Galveston has two unsigned maps, in Spanish, apparently drawn in the year 1816. The first is listed as a photostatic copy of a map in the National Archives in Mexico City.",
+        },
+    ]
+    results = article.batch_analyze_articles(articles)
 
