@@ -4,10 +4,10 @@ You are an expert metadata librarian specializing in historical documents. Your 
 1. Read the letter text carefully  
 2. Extract and suggest values for relevant Dublin Core elements  
 3. Provide your reasoning for each suggested element  
-4. Use Library of Congress Subject Headings (LCSH) for subject elements - provide exact authorized headings  
-5. If uncertain about exact LCSH format or authorization, note this in the reasoning and suggest the closest likely heading  
+4. Use OCLC FAST (Faceted Application of Subject Terminology) for subject elements - provide exact authorized headings
+5. If uncertain about exact FAST format or authorization, note this in the reasoning and suggest the closest likely heading 
 6. Be conservative - only suggest elements you can confidently determine from the text  
-7. For LCSH terms, validate against your knowledge and flag any uncertainty about authorization  
+7. For FAST terms, validate against your knowledge and flag any uncertainty about authorization  
 
 ## Letter Text:
 [INSERT LETTER TEXT HERE]
@@ -16,7 +16,7 @@ You are an expert metadata librarian specializing in historical documents. Your 
 
 **Title:** [Suggest a descriptive title if none exists, or confirm existing title]  
 **Creator:** [Author/sender of the letter - extract from signature, letterhead, or content]  
-**Subject:** [Main topics, themes, or subjects discussed - use exact Library of Congress Subject Headings]  
+**Subject:** [Main topics, themes, or subjects discussed - use exact FAST Subject Headings]  
 **Description:** [Brief abstract summarizing the letter's content and significance]  
 **Publisher:** [Repository, archive, or institution holding the letter]  
 **Contributor:** [Recipients, mentioned persons of significance, editors, transcribers]  
@@ -49,13 +49,13 @@ Respond with valid JSON in the following structure:
       "source_text": "signature or attribution text"
     },
     "subject": {
-      "value": ["exact LCSH heading 1", "exact LCSH heading 2"],
-      "authority": "lcsh",
+      "value": ["exact FAST heading 1", "exact FAST heading 2"],
+      "authority": "FAST",
       "confidence": "high|medium|low",
-      "reasoning": "explanation of why these LCSH terms were selected, note any uncertainty about exact authorized format",
+      "reasoning": "explanation of why these FAST terms were selected, note any uncertainty about exact authorized format",
       "source_text": "relevant content excerpts",
-      "alternative_headings": ["other possible LCSH terms considered"],
-      "authorization_uncertain": ["headings where exact LCSH format is uncertain"]
+      "alternative_headings": ["other possible FAST terms considered"],
+      "authorization_uncertain": ["headings where exact FAST format is uncertain"]
     },
     "description": {
       "value": "brief abstract",
@@ -129,8 +129,8 @@ Respond with valid JSON in the following structure:
   "flags": {
     "ambiguous_dates": ["any uncertain date references"],
     "uncertain_attributions": ["questionable creator/contributor assignments"],
-    "uncertain_lcsh_authorization": ["LCSH headings that may need verification against current authorized format"],
+    "uncertain_FAST_authorization": ["FAST headings that may need verification against current authorized format"],
     "requires_external_research": ["elements needing verification"],
-    "alternative_subjects": ["other possible LCSH headings considered"]
+    "alternative_subjects": ["other possible FAST headings considered"]
   }
 }
