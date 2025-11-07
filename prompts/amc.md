@@ -17,14 +17,14 @@ You are an expert metadata librarian specializing in historical documents. Your 
 
 ## Please provide suggestions for the following Dublin Core elements:
 
-**Creator:** [If the creator is indicated in the title, use that. Use exact FAST Subject Headings whenever possible. Repeatable.]  
-**Subject:** [Main topics, themes, or subjects discussed - use exact FAST Subject Headings. Also include mentioned persons of significance. Repeatable.]  
+**Creator:** [If the creator is indicated in the title, use that. Use exact FAST Subject Headings whenever possible.]  
+**Subject:** [Main topics, themes, or subjects discussed - use exact FAST Subject Headings. Also include mentioned persons of significance using exact FAST Subject Headings.]  
 **Description:** [Brief abstract summarizing the document's content and significance]  
-**Contributor:** [Examples: Letter recipients, editors, transcribers. If a contributor such as a recipient is mentioned in the title, use that. Use exact FAST Subject Headings whenever possible. Repeatable.]  
+**Contributor:** [Examples: Letter recipients, editors, transcribers. If a contributor such as a recipient is mentioned in the title, use that. Use exact FAST Subject Headings whenever possible.]  
 **Date:** [Date of composition - normalize to ISO 8601 format if possible (YYYY-MM-DD). If the date is indicated in the title, use that.]  
 **Type:** [Use DCMI Type Vocabulary: likely "Text" or "StillImage" with a quantifier]  
-**Language:** [Language of the letter using ISO 639 codes. Repeatable.]  
-**Coverage:** [Geographic locations and temporal coverage mentioned in content. Use exact FAST Subject Headings whenever possible. Repeatable.]  
+**Language:** [Language of the letter using ISO 639 codes.]  
+**Coverage:** [Geographic locations and temporal coverage mentioned in content. Use exact FAST Subject Headings whenever possible.]  
 
 ## Output Format:
 Respond with valid JSON in the following structure:
