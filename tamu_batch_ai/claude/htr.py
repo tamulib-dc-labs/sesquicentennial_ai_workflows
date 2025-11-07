@@ -351,6 +351,7 @@ class ClaudeWork(ClaudeBase):
                 json_str = json_match.group(0)
                 try:
                     metadata = json.loads(json_str)
+                    metadata['filenames'] = self.pages
                     return response_text, metadata
                 except json.JSONDecodeError as e:
                     print(f"JSON decode error in metadata: {e}")
@@ -430,7 +431,12 @@ class ClaudeWork(ClaudeBase):
                     output.append(f"\n{flag_type.replace('_', ' ').title()}:")
                     for item in items:
                         output.append(f"  • {item}")
-        
+        if 'filenames' in metadata:
+            output.append(f"\n{'=' * 30}")
+            output.append("SOURCE FILES:")
+            output.append(f"{'=' * 30}")
+            for filename in metadata['filenames']:
+                output.append(f"  • {filename}")
         return "\n".join(output)
     
     def save_metadata(self, metadata: Dict, output_path: str = "metadata", formats: List[str] = ["json", "readable"]):
@@ -1982,13 +1988,29 @@ if __name__ == "__main__":
     # print(metadata)
     #
     # print(response)
+    from csv import DictReader
+    final_articles = []
+    with open(
+            "/Users/mark.baggett/code/ancient_ojs_journals/lsgnews_final_articles.csv",
+            "r"
+    ) as galveston:
+        articles = DictReader(galveston)
 
+        for article in articles:
+            final_articles.append(
+                {
+                    'image_path': f"/Users/mark.baggett/code/ancient_ojs_journals/{article['bundle:THUMBNAIL']}",
+                    'existing_metadata': f"Title: {article['dc.title']}, Abstract: {article['dcterms.abstract']}",
+                }
+             )
     article = ClaudeArticle()
-    articles = [
-        {
-            "image_path": "/Users/mark.baggett/code/ancient_ojs_journals/thumbnails/310-1152-1-PB.png",
-            "existing_metadata": "The Rosenberg Library in Galveston has two unsigned maps, in Spanish, apparently drawn in the year 1816. The first is listed as a photostatic copy of a map in the National Archives in Mexico City.",
-        },
-    ]
-    results = article.batch_analyze_articles(articles)
+    results = article.batch_analyze_articles(final_articles)
 
+    # article = ClaudeArticle()
+    # articles = [
+    #     {
+    #         "image_path": "/Users/mark.baggett/code/ancient_ojs_journals/thumbnails/310-1152-1-PB.png",
+    #         "existing_metadata": "The Rosenberg Library in Galveston has two unsigned maps, in Spanish, apparently drawn in the year 1816. The first is listed as a photostatic copy of a map in the National Archives in Mexico City.",
+    #     },
+    # ]
+    # results = article.batch_analyze_articles(articles)

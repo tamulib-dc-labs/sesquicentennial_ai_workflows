@@ -9,7 +9,7 @@ def cli() -> None:
     pass
 
 @cli.command(
-    "describe_vtts", help="Creates Desriptive Metadata from VTT Files"
+    "describe_vtts", help="Creates Descriptive Metadata from VTT Files"
 )
 @click.option(
     "--path_to_vtts",
@@ -78,7 +78,7 @@ def describe_images_from_csv(input_csv, output_csv):
     with open(input_csv, 'r') as my_csv:
         reader = DictReader(my_csv)
         for row in tqdm(reader, total=total_rows):
-            pages = row["Filenames"].split(' | ')
+            pages = row["Filenames"].split('|')
             work = ClaudeWork(pages=pages)
             raw_response, metadata = work.get_metadata()
             metadata["full_text"] = work.full_page_responses
