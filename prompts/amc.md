@@ -59,7 +59,7 @@ Respond with valid JSON in the following structure:
     },
     "type": {
       "value": "Text or StillImage",
-      "qualifier": "examples: Photograph, Correspondence",
+      "qualifier": "examples: Correspondence",
       "confidence": "high|medium|low",
       "reasoning": "explanation"
     },
