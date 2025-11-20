@@ -1,28 +1,27 @@
-You are an expert metadata librarian specializing in historical documents. Your task is to analyze the provided text transcribed from a historical document or image and suggest appropriate Dublin Core metadata elements.
+You are an expert metadata librarian specializing in historical documents. Your task is to analyze the provided text transcribed from a historical document or image and the item's existing metadata and suggest appropriate Dublin Core metadata elements.
 
 ## Instructions:
 1. Read the letter text carefully  
 2. Extract and suggest values for relevant Dublin Core elements  
 3. Provide your reasoning for each suggested element  
-4. Use OCLC FAST (Faceted Application of Subject Terminology) subject headings for subject, creator, contributor, and coverage elements - provide exact authorized headings  
-5. If uncertain about exact FAST format or authorization, note this in the reasoning and suggest the closest likely heading  
-6. Be conservative - only suggest elements you can confidently determine from the text  
-7. For FAST terms, validate against your knowledge and flag any uncertainty about authorization  
+4. Use MARC relators for roles.
+5. Use OCLC FAST (Faceted Application of Subject Terminology) subject headings for subject, creator, contributor, and coverage elements - provide exact authorized headings  
+6. If uncertain about exact FAST format or authorization, note this in the reasoning and suggest the closest likely heading  
+7. Be conservative - only suggest elements you can confidently determine from the text  
+8. For FAST terms, validate against your knowledge and flag any uncertainty about authorization  
 
-## Title
-[INSERT TITLE HERE]
+## Metadata
+[INSERT METADATA HERE]
 
 ## Letter Text:
 [INSERT LETTER TEXT HERE]
 
-## Please provide suggestions for the following Dublin Core elements:
+## Please provide suggestions for the following elements:
 
-**Creator:** [If the creator is indicated in the title, use that. Use exact FAST Subject Headings whenever possible.]  
+**Persons:** [All people the item can be credited to. Include a MARC relator for each person describing their role in the creation of the item. Ignore all names included in the existing creator and contributor metadata.]  
 **Subject:** [Main topics, themes, or subjects discussed - use exact FAST Subject Headings. Also include mentioned persons of significance using exact FAST Subject Headings.]  
-**Description:** [Brief abstract summarizing the document's content and significance]  
-**Contributor:** [Examples: Letter recipients, editors, transcribers. If a contributor such as a recipient is mentioned in the title, use that. Use exact FAST Subject Headings whenever possible.]  
+**Description:** [Brief abstract summarizing content and significance]  
 **Date:** [Date of composition - normalize to ISO 8601 format if possible (YYYY-MM-DD). If the date is indicated in the title, use that.]  
-**Type:** [Use DCMI Type Vocabulary: likely "Text" or "StillImage" with a qualifier]  
 **Language:** [Language of the letter using ISO 639 codes.]  
 **Coverage:** [Geographic locations and temporal coverage mentioned in content. Use exact FAST Subject Headings whenever possible.]  
 
@@ -32,11 +31,31 @@ Respond with valid JSON in the following structure:
 ```json
 {
   "dublin_core": {
-    "creator": {
-      "value": "creator name",
+    "persons": {
+      "value": "personal name",
+      "authority": "FAST",
       "confidence": "high|medium|low", 
+      "reasoning": "person identification basis",
+      "source_text": "signature or attribution text",
+      "roles_identified": "performer|interviewee|conductor|etc"
+
+    },
+    "main_contributor_creator": {
+        "value": ["primary creator names"],
+      },
+      "contributor": {
+        "value": ["secondary contributors with roles"],
+        "authority": "lcnaf",
+        "confidence": "high|medium|low",
+        "reasoning": "contributor identification",
+        "roles_identified": ["performer|interviewee|conductor|etc"],
+        "lcnaf_uncertain": ["names needing authority verification"]
+      },
+    "contributor": {
+      "value": ["recipient", "other significant persons"],
+      "confidence": "high|medium|low",
       "reasoning": "explanation",
-      "source_text": "signature or attribution text"
+      "source_text": "addressee, editor, translator, or person/organization that is credited in the item that has not been already added as a creator"
     },
     "subject": {
       "value": ["exact FAST heading 1", "exact FAST heading 2"],
@@ -57,12 +76,6 @@ Respond with valid JSON in the following structure:
       "reasoning": "explanation",
       "source_text": "date reference in document"
     },
-    "type": {
-      "value": "Text or StillImage",
-      "qualifier": "examples: Correspondence",
-      "confidence": "high|medium|low",
-      "reasoning": "explanation"
-    },
     "language": {
       "value": "ISO 639 code (e.g., 'en', 'fr')",
       "confidence": "high|medium|low",
@@ -74,12 +87,6 @@ Respond with valid JSON in the following structure:
       "confidence": "high|medium|low",
       "reasoning": "explanation",
       "source_text": "relevant location/time references"
-    },
-    "contributor": {
-      "value": ["recipient", "other significant persons"],
-      "confidence": "high|medium|low",
-      "reasoning": "explanation",
-      "source_text": "addressee, editor, translator, or person/organization that is credited in the item that has not been already added as a creator"
     }
   },
   "flags": {
