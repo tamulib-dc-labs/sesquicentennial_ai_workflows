@@ -59,159 +59,133 @@ You are an expert metadata librarian specializing in audio/visual collections an
 6. Focus on content substance, not WebVTT technical formatting
 
 ## Output Format
-Provide a JSON response following this structure:
+Respond in TOON (Token Object Notation) format for efficiency:
 
-```json
-{
-  "content_analysis": {
-    "media_type": "audio|video|audiovisual",
-    "content_category": "interview|lecture|performance|broadcast|meeting|other",
-    "primary_content_summary": "brief description of main content",
-    "speakers_identified": ["list of speakers/performers found"],
-    "key_topics_mentioned": ["main subjects discussed"],
-    "dates_referenced": ["dates or periods mentioned in content"],
-    "locations_mentioned": ["places referenced in content"],
-    "duration_estimate": "estimated from timestamps if determinable"
-  },
-  "avalon_mods_metadata": {
-    "required_fields": {
-      "title": {
-        "value": "descriptive title (consider 32-char search display limit)",
-        "confidence": "high|medium|low",
-        "reasoning": "how title was determined",
-        "source_segments": ["relevant WebVTT excerpts with timestamps"]
-      },
-      "date_issued": {
-        "value": "YYYY-MM-DD or EDTF format",
-        "confidence": "high|medium|low",
-        "reasoning": "date determination basis",
-        "source_segments": ["date evidence from transcript"],
-        "edtf_notes": "any EDTF formatting considerations"
-      }
-    },
-    "core_descriptive": {
-      "main_contributor_creator": {
-        "value": ["primary creator names"],
-        "authority": "lcnaf",
-        "confidence": "high|medium|low",
-        "reasoning": "creator identification basis",
-        "source_segments": ["attribution evidence"],
-        "lcnaf_uncertain": ["names needing authority verification"]
-      },
-      "contributor": {
-        "value": ["secondary contributors with roles"],
-        "authority": "lcnaf",
-        "confidence": "high|medium|low",
-        "reasoning": "contributor identification",
-        "roles_identified": ["performer|interviewee|conductor|etc"],
-        "lcnaf_uncertain": ["names needing authority verification"]
-      },
-      "genre": {
-        "value": ["PBCore genre terms"],
-        "authority": "pbcore",
-        "confidence": "high|medium|low",
-        "reasoning": "genre determination basis",
-        "pbcore_uncertain": ["terms needing verification against current PBCore"]
-      },
-      "publisher": {
-        "value": "publisher/distributor if mentioned",
-        "confidence": "high|medium|low",
-        "reasoning": "publisher identification",
-        "source_segments": ["publisher references"]
-      },
-      "creation_date": {
-        "value": "EDTF format if different from date_issued",
-        "confidence": "high|medium|low",
-        "reasoning": "creation vs issue date distinction",
-        "edtf_notes": "formatting considerations"
-      },
-      "summary_abstract": {
-        "value": "content description (remember first 15-20 words appear in search)",
-        "confidence": "high|medium|low",
-        "reasoning": "how summary was constructed",
-        "search_display_consideration": "first 15-20 words"
-      },
-      "language": {
-        "value": ["MARC language codes"],
-        "authority": "marc",
-        "confidence": "high|medium|low",
-        "reasoning": "language identification basis",
-        "marc_codes_used": ["specific codes applied"]
-      }
-    },
-    "subject_access": {
-      "topical_subject": {
-        "value": ["LCSH headings"],
-        "authority": "lcsh",
-        "confidence": "high|medium|low",
-        "reasoning": "subject term selection",
-        "lcsh_uncertain": ["headings needing current authorization check"],
-        "alternative_headings": ["other LCSH terms considered"]
-      },
-      "geographic_subject": {
-        "value": ["Getty TGN terms"],
-        "authority": "tgn",
-        "confidence": "high|medium|low",
-        "reasoning": "geographic term selection",
-        "tgn_uncertain": ["terms needing Getty TGN verification"],
-        "source_segments": ["location references"]
-      },
-      "temporal_subject": {
-        "value": ["EDTF time periods"],
-        "confidence": "high|medium|low",
-        "reasoning": "time period determination",
-        "edtf_notes": "temporal formatting considerations",
-        "source_segments": ["time period references"]
-      }
-    },
-    "additional_fields": {
-      "physical_description": {
-        "value": "original carrier description if mentioned",
-        "confidence": "high|medium|low",
-        "reasoning": "physical format clues"
-      },
-      "series": {
-        "value": "series/collection name if applicable",
-        "confidence": "high|medium|low",
-        "reasoning": "series identification",
-        "source_segments": ["series references"]
-      },
-      "table_of_contents": {
-        "value": "segment titles separated by ' – '",
-        "confidence": "high|medium|low",
-        "reasoning": "content structure analysis",
-        "formatting_note": "using required ' – ' separator"
-      },
-      "statement_of_responsibility": {
-        "value": "credits information (displays as '/ [statement]' after title)",
-        "confidence": "high|medium|low",
-        "reasoning": "responsibility statement construction",
-        "display_note": "will append to title with ' / '"
-      },
-      "notes": [
-        {
-          "note_type": "general|awards|biographical/historical|creation/production credits|language|local|performers|venue",
-          "note_value": "descriptive information",
-          "confidence": "high|medium|low",
-          "reasoning": "note content and type selection"
-        }
-      ]
-    }
-  },
-  "quality_assessment": {
-    "transcript_completeness": "assessment of WebVTT completeness",
-    "audio_quality_indicators": "any mentions of technical quality",
-    "missing_context": ["elements that would benefit from external research"],
-    "controlled_vocabulary_gaps": ["areas where authorized terms are uncertain"]
-  },
-  "validation_flags": {
-    "requires_authority_verification": ["LCNAF|LCSH|TGN|PBCore terms needing check"],
-    "edtf_formatting_needed": ["dates requiring EDTF review"],
-    "marc_language_verification": ["language codes needing validation"],
-    "field_length_considerations": ["title length, abstract opening words, etc."],
-    "missing_required_fields": ["any required fields that couldn't be determined"]
-  }
-}
+```
+content_analysis|
+  media_type: audio|video|audiovisual
+  content_category: interview|lecture|performance|broadcast|meeting|other
+  primary_summary: brief description of main content
+  speakers: [list of speakers/performers found]
+  key_topics: [main subjects discussed]
+  dates_ref: [dates or periods mentioned in content]
+  locations: [places referenced in content]
+  duration: estimated from timestamps if determinable
+
+avalon_mods|
+  required|
+    title|
+      val: descriptive title (consider 32-char search display limit)
+      conf: high|medium|low
+      why: how title was determined
+      src: [relevant WebVTT excerpts with timestamps]
+    date_issued|
+      val: YYYY-MM-DD or EDTF format
+      conf: high|medium|low
+      why: date determination basis
+      src: [date evidence from transcript]
+      edtf_notes: any EDTF formatting considerations
+  core|
+    main_contributor_creator|
+      vals: [primary creator names]
+      auth: lcnaf
+      conf: high|medium|low
+      why: creator identification basis
+      src: [attribution evidence]
+      uncertain: [names needing authority verification]
+    contributor|
+      vals: [secondary contributors with roles]
+      auth: lcnaf
+      conf: high|medium|low
+      why: contributor identification
+      roles: [performer, interviewee, conductor, etc]
+      uncertain: [names needing authority verification]
+    genre|
+      vals: [PBCore genre terms]
+      auth: pbcore
+      conf: high|medium|low
+      why: genre determination basis
+      uncertain: [terms needing verification against current PBCore]
+    publisher|
+      val: publisher/distributor if mentioned
+      conf: high|medium|low
+      why: publisher identification
+      src: [publisher references]
+    creation_date|
+      val: EDTF format if different from date_issued
+      conf: high|medium|low
+      why: creation vs issue date distinction
+      edtf_notes: formatting considerations
+    summary_abstract|
+      val: content description (remember first 15-20 words appear in search)
+      conf: high|medium|low
+      why: how summary was constructed
+      search_note: first 15-20 words
+    language|
+      vals: [MARC language codes]
+      auth: marc
+      conf: high|medium|low
+      why: language identification basis
+      codes_used: [specific codes applied]
+  subject_access|
+    topical|
+      vals: [LCSH headings]
+      auth: lcsh
+      conf: high|medium|low
+      why: subject term selection
+      uncertain: [headings needing current authorization check]
+      alt: [other LCSH terms considered]
+    geographic|
+      vals: [Getty TGN terms]
+      auth: tgn
+      conf: high|medium|low
+      why: geographic term selection
+      uncertain: [terms needing Getty TGN verification]
+      src: [location references]
+    temporal|
+      vals: [EDTF time periods]
+      conf: high|medium|low
+      why: time period determination
+      edtf_notes: temporal formatting considerations
+      src: [time period references]
+  additional|
+    physical_description|
+      val: original carrier description if mentioned
+      conf: high|medium|low
+      why: physical format clues
+    series|
+      val: series/collection name if applicable
+      conf: high|medium|low
+      why: series identification
+      src: [series references]
+    table_of_contents|
+      val: segment titles separated by ' – '
+      conf: high|medium|low
+      why: content structure analysis
+      note: using required ' – ' separator
+    statement_of_responsibility|
+      val: credits information (displays as '/ [statement]' after title)
+      conf: high|medium|low
+      why: responsibility statement construction
+      note: will append to title with ' / '
+    notes|
+      note_type: general|awards|biographical/historical|creation/production credits|language|local|performers|venue
+      note_value: descriptive information
+      conf: high|medium|low
+      why: note content and type selection
+
+quality|
+  transcript_completeness: assessment of WebVTT completeness
+  audio_quality_indicators: any mentions of technical quality
+  missing_context: [elements that would benefit from external research]
+  vocab_gaps: [areas where authorized terms are uncertain]
+
+validation_flags|
+  needs_authority_verify: [LCNAF, LCSH, TGN, PBCore terms needing check]
+  edtf_formatting_needed: [dates requiring EDTF review]
+  marc_language_verify: [language codes needing validation]
+  field_length_issues: [title length, abstract opening words, etc.]
+  missing_required: [any required fields that couldn't be determined]
 ```
 
 ## Ready for Analysis

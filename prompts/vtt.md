@@ -44,81 +44,70 @@ You are an expert metadata librarian specializing in digitized special collectio
 6. Be explicit about confidence levels and reasoning
 
 ## Output Format
-Provide a JSON response with this structure:
+Respond in TOON (Token Object Notation) format for efficiency:
 
-```json
-{
-  "work_analysis": {
-    "content_type": "description of what type of work this is",
-    "primary_content": "brief summary of main content",
-    "speakers_identified": ["list of speakers/creators found"],
-    "key_topics": ["main subjects discussed"],
-    "temporal_clues": ["dates or time periods mentioned"],
-    "spatial_clues": ["locations mentioned"]
-  },
-  "dublin_core": {
-    "title": {
-      "value": "suggested title",
-      "confidence": "high|medium|low",
-      "reasoning": "how determined",
-      "source_segments": ["relevant WebVTT timestamps/text"]
-    },
-    "creator": {
-      "value": ["primary creators/speakers"],
-      "confidence": "high|medium|low",
-      "reasoning": "explanation",
-      "source_segments": ["attribution evidence"]
-    },
-    "subject": {
-      "value": ["LCSH headings"],
-      "authority": "lcsh",
-      "confidence": "high|medium|low",
-      "reasoning": "why these terms selected",
-      "uncertain_authorizations": ["headings needing verification"],
-      "alternative_headings": ["other possibilities considered"]
-    },
-    "description": {
-      "value": "abstract of work content",
-      "confidence": "high|medium|low",
-      "reasoning": "how summarized"
-    },
-    "date": {
-      "value": "YYYY-MM-DD or best available",
-      "confidence": "high|medium|low",
-      "reasoning": "date evidence",
-      "source_segments": ["date references"]
-    },
-    "type": {
-      "value": "DCMI type",
-      "qualifier": "specific format",
-      "confidence": "high|medium|low",
-      "reasoning": "type determination basis"
-    },
-    "language": {
-      "value": "ISO 639 code",
-      "confidence": "high|medium|low",
-      "reasoning": "language identification basis"
-    },
-    "coverage": {
-      "spatial": ["geographic locations"],
-      "temporal": "time periods discussed",
-      "confidence": "high|medium|low",
-      "source_segments": ["location/time references"]
-    }
-  },
-  "additional_metadata": {
-    "duration_indicators": "estimated length from timestamps",
-    "technical_notes": "any format clues from WebVTT",
-    "quality_assessment": "completeness of transcript/captions",
-    "collection_clues": "any institutional or collection references found"
-  },
-  "confidence_flags": {
-    "low_confidence_elements": ["elements with uncertain values"],
-    "needs_verification": ["items requiring external validation"],
-    "ambiguous_content": ["unclear or fragmented information"],
-    "missing_context": ["elements that would benefit from additional sources"]
-  }
-}
+```
+work_analysis|
+  content_type: description of what type of work this is
+  primary_content: brief summary of main content
+  speakers: [list of speakers/creators found]
+  key_topics: [main subjects discussed]
+  temporal_clues: [dates or time periods mentioned]
+  spatial_clues: [locations mentioned]
+
+dublin_core|
+  title|
+    val: suggested title
+    conf: high|medium|low
+    why: how determined
+    src: [relevant WebVTT timestamps/text]
+  creator|
+    vals: [primary creators/speakers]
+    conf: high|medium|low
+    why: explanation
+    src: [attribution evidence]
+  subject|
+    vals: [LCSH headings]
+    auth: lcsh
+    conf: high|medium|low
+    why: why these terms selected
+    uncertain: [headings needing verification]
+    alt: [other possibilities considered]
+  description|
+    val: abstract of work content
+    conf: high|medium|low
+    why: how summarized
+  date|
+    val: YYYY-MM-DD or best available
+    conf: high|medium|low
+    why: date evidence
+    src: [date references]
+  type|
+    val: DCMI type
+    qualifier: specific format
+    conf: high|medium|low
+    why: type determination basis
+  language|
+    val: ISO 639 code
+    conf: high|medium|low
+    why: language identification basis
+  coverage|
+    spatial: [geographic locations]
+    temporal: time periods discussed
+    conf: high|medium|low
+    src: [location/time references]
+
+additional|
+  duration: estimated length from timestamps
+  technical_notes: any format clues from WebVTT
+  quality: completeness of transcript/captions
+  collection_clues: any institutional or collection references found
+
+flags|
+  low_confidence: [elements with uncertain values]
+  needs_verification: [items requiring external validation]
+  ambiguous_content: [unclear or fragmented information]
+  missing_context: [elements that would benefit from additional sources]
 ```
 
 ## Example Usage

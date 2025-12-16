@@ -9,64 +9,115 @@ import re
 import csv
 import PyPDF2
 
+# Import new utilities
+from ..config import model_config
+from ..prompt_manager import prompt_manager
+from ..parsers import ResponseParser
+
 
 class ClaudeBase:
-    """A Base Class for Claude Requests"""
-    def __init__(self, api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
-        """Initialize Claude client."""
-        self.client = anthropic.Anthropic(
-            api_key=api_key or os.environ.get(
-                "CLAUDE_API"
-            )
-        )
-        self.model = model
-    
-    def get_prompt(self, prompt_file):
-        """A method to get the prompt text from a markdown file.
-        
+    """Base class for Claude API requests with common functionality."""
+
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+        """Initialize Claude client.
+
         Args:
-            prompt_file (str): A markdown file including a prompt
+            api_key: Anthropic API key (defaults to CLAUDE_API environment variable)
+            model: Model to use (defaults to config.model_config.default_model)
+        """
+        self.client = anthropic.Anthropic(
+            api_key=api_key or os.environ.get("CLAUDE_API")
+        )
+        self.model = model or model_config.default_model
+
+    def get_prompt(self, prompt_file: str, **kwargs) -> str:
+        """Load and optionally render a prompt template.
+
+        Args:
+            prompt_file: Name of the prompt file (e.g., "htr.md" or "htr")
+            **kwargs: Variables to substitute in the template
 
         Returns:
-            str: The contents of the file.
+            Prompt text (rendered if kwargs provided)
 
         Examples:
-            >>> ClaudeBase().get_prompt("htr.md")
-            You are an expert historical document transcriber specializing in 19th-century correspondence. Your task is to transcribe all handwritten text from this 1800s letter written in cursive script.
-
-            ## Instructions:
-            - Transcribe all visible handwritten text exactly as written, preserving original spelling, punctuation, and capitalization  
-            - Maintain the original line breaks and paragraph structure when possible  
-            - For words that are unclear due to handwriting, fading, or damage, provide your best interpretation followed by `[illegible]` in brackets  
-            - If a word is completely unreadable, use `[illegible]` as a placeholder  
-            - Note any significant damage, tears, or missing sections that affect readability as `[damaged]` or `[torn]`  
-            - Include any marginalia, postscripts, or text written in different orientations  
-            - If the letter spans multiple pages or has text on both sides, clearly indicate page/side transitions  
-
-            ## Return the results in this JSON format:
-            ```json
-            {
-            "extracted_text": "full text content",
-            "confidence_assesment": "high/medium/low",
-            "legibility_notes": "any notes about difficult to read sections"
-            }
-
+            >>> base = ClaudeBase()
+            >>> base.get_prompt("htr.md")
+            >>> base.get_prompt("metadata", letter_text="Dear Sir...")
         """
-        with open(f'prompts/{prompt_file}', 'r') as f:
-            text = f.read()
-        return text
-    
+        if kwargs:
+            return prompt_manager.load_and_render(prompt_file, **kwargs)
+        return prompt_manager.load_template(prompt_file)
+
+    def encode_image(self, image_path: str) -> Tuple[str, str]:
+        """Encode an image to base64 and determine its media type.
+
+        Args:
+            image_path: Path to the image file
+
+        Returns:
+            Tuple of (base64_encoded_data, media_type)
+        """
+        with open(image_path, "rb") as image_file:
+            image_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+        suffix = Path(image_path).suffix.lower()
+        media_type_map = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp'
+        }
+        media_type = media_type_map.get(suffix, 'image/jpeg')
+
+        return image_data, media_type
+
+    def parse_response(self, response_text: str, format_hint: str = "auto") -> Dict:
+        """Parse Claude API response in TOON or JSON format.
+
+        Args:
+            response_text: Raw response text from Claude
+            format_hint: "toon", "json", or "auto" to detect
+
+        Returns:
+            Parsed dictionary
+        """
+        return ResponseParser.parse_response(response_text, format_hint)
+
+    def save_json(self, data: Dict, output_path: str, include_timestamp: bool = True) -> str:
+        """Save data as JSON file.
+
+        Args:
+            data: Dictionary to save
+            output_path: Base output path (without extension)
+            include_timestamp: Whether to add timestamp to filename
+
+        Returns:
+            Path to saved file
+        """
+        if include_timestamp:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            json_path = f"{output_path}_{timestamp}.json"
+        else:
+            json_path = f"{output_path}.json"
+
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        return json_path
+
     def calculate_cost(self, usage_data=None, model_name=None):
         """Calculate cost based on token usage and model.
-        
+
         Args:
             usage_data (dict, optional): Token usage data with 'input_tokens' and 'output_tokens'.
                                        If None, uses self.last_response.usage
             model_name (str, optional): Model name. If None, uses self.model_used
-            
+
         Returns:
             dict: Cost breakdown with input, output, and total costs in USD
-            
+
         Raises:
             ValueError: If usage data or model name cannot be determined
         """
@@ -85,7 +136,7 @@ class ClaudeBase:
                 "input": 3.00,
                 "output": 15.00
             },
-            
+
             # Claude 3.5 family
             "claude-3-5-sonnet-20241022": {
                 "input": 3.00,
@@ -99,7 +150,7 @@ class ClaudeBase:
                 "input": 0.80,
                 "output": 4.00
             },
-            
+
             # Claude 3 family (legacy)
             "claude-3-opus-20240229": {
                 "input": 15.00,
@@ -114,40 +165,40 @@ class ClaudeBase:
                 "output": 1.25
             }
         }
-        
+
         # Determine usage data
         if usage_data is None:
             if hasattr(self, 'last_response') and self.last_response:
                 usage_data = self.last_response.usage.__dict__
             else:
                 raise ValueError("No usage data provided and no last_response available")
-        
+
         # Determine model name
         if model_name is None:
             if hasattr(self, 'model_used') and self.model_used:
                 model_name = self.model_used
             else:
                 raise ValueError("No model name provided and no model_used available")
-        
+
         # Check if model is supported
         if model_name not in model_pricing:
             available_models = list(model_pricing.keys())
             raise ValueError(f"Model '{model_name}' not found in pricing table. "
                            f"Available models: {available_models}")
-        
+
         # Extract token counts
         input_tokens = usage_data.get('input_tokens', 0)
         output_tokens = usage_data.get('output_tokens', 0)
-        
+
         if input_tokens == 0 and output_tokens == 0:
             raise ValueError("Both input_tokens and output_tokens are 0")
-        
+
         # Calculate costs (pricing is per million tokens)
         pricing = model_pricing[model_name]
         input_cost = (input_tokens / 1_000_000) * pricing['input']
         output_cost = (output_tokens / 1_000_000) * pricing['output']
         total_cost = input_cost + output_cost
-        
+
         return {
             'model': model_name,
             'input_tokens': input_tokens,
@@ -160,10 +211,10 @@ class ClaudeBase:
                 'output': pricing['output'] / 1_000_000
             }
         }
-    
+
     def _store_response_data(self, response, model_name):
         """Helper method to store response data for cost calculation.
-        
+
         Args:
             response: Anthropic API response object
             model_name (str): Name of the model used
@@ -173,49 +224,27 @@ class ClaudeBase:
 
 
 class ClaudePage(ClaudeBase):
-    """A Class to Represet Pages as Claude Requests"""
-    def __init__(self, api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
-        super().__init__(api_key)
-        self.prompt = self.get_prompt("htr.md")
-        self.model = model
+    """A Class to Represent Pages as Claude Requests"""
 
-    def encode_image(self, image_path: str) -> Tuple[str, str]:
-        """Gets an image and returns a tuple with base64 encoding of the file contents and its media type
-        
-        Args:
-            image_path (str): The path to an image
-
-        Returns:
-            tuple: base64 encoded image contents, media type
-        """
-        with open(image_path, "rb") as image_file:
-            image_data = base64.b64encode(image_file.read()).decode('utf-8')
-        suffix = Path(image_path).suffix.lower()
-        media_type_map = {
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-            '.gif': 'image/gif',
-            '.webp': 'image/webp'
-        }
-        media_type = media_type_map.get(suffix, 'image/jpeg')
-        return image_data, media_type
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+        super().__init__(api_key, model)
+        self.prompt = self.get_prompt("htr")
 
     def extract_text_with_claude(self, image_path: str) -> Tuple[str, Dict]:
         """Uses Claude AI to extract the contents of a handwritten document
-        
+
         Args:
             image_path (str): The path to an image
 
         Returns:
-            tuple: original response text, a dict with information about the response text
+            tuple: extracted text, dict with parsed response data
         """
         try:
             image_data, media_type = self.encode_image(image_path)
-            
+
             message = self.client.messages.create(
                 model=self.model,
-                max_tokens=1000,
+                max_tokens=model_config.get_max_tokens('htr'),
                 messages=[
                     {
                         "role": "user",
@@ -236,44 +265,24 @@ class ClaudePage(ClaudeBase):
                     }
                 ]
             )
-            
+
             # Store response data for cost calculation
             self._store_response_data(message, self.model)
-            
+
             response_text = message.content[0].text.strip()
-            
+
+            # Parse response using unified parser (handles TOON format)
             try:
-                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
-                    try:
-                        parsed_data = json.loads(json_str)
-                    except json.JSONDecodeError:
-                        def escape_string_content(match):
-                            content = match.group(1)
-                            content = content.replace('\n', '\\n').replace('\t', '\\t').replace('\r', '\\r')
-                            return f'"{content}"'
-                        
-                        cleaned_json = re.sub(r'"([^"]*)"', escape_string_content, json_str)
-                        parsed_data = json.loads(cleaned_json)
-                    
-                    return parsed_data.get("extracted_text", ""), parsed_data
-                else:
-                    return response_text, {
-                        "extracted_text": response_text,
-                        "confidence_assessment": "unknown",
-                        "text_type": "unknown",
-                        "legibility_notes": "No JSON object found in response"
-                    }
-            except json.JSONDecodeError as e:
-                print(f"JSON decode error: {e}")
-                print(f"Problematic JSON string: {repr(json_str[:200])}...")
+                parsed_data = self.parse_response(response_text, format_hint="toon")
+                return parsed_data.get("extracted_text", ""), parsed_data
+            except Exception as e:
+                print(f"Parse error: {e}")
                 return response_text, {
                     "extracted_text": response_text,
                     "confidence_assessment": "unknown",
-                    "text_type": "unknown",
-                    "legibility_notes": "Could not parse JSON response"
+                    "legibility_notes": f"Could not parse response: {e}"
                 }
+
         except Exception as e:
             print(f"Error processing {image_path} with Claude: {str(e)}")
             return "", {"error": str(e)}
@@ -281,24 +290,25 @@ class ClaudePage(ClaudeBase):
 
 class ClaudeWork(ClaudeBase):
     """Class to represent a Work with a Claude prompt
-    
+
     Attributes:
         pages (list): The individual canvases that make up a Claude work.
         full_text (str): The full text of canvases according to Claude.
-        full_page_responses (list): A list of dicts with more information about the Claude full text response. 
-    
+        full_page_responses (list): A list of dicts with more information about the Claude full text response.
+
     """
-    def __init__(self, pages=None, api_key: Optional[str] = None, model="claude-3-5-haiku-20241022"):
+
+    def __init__(self, pages=None, api_key: Optional[str] = None, model: Optional[str] = None):
         """Generates a Claude Work.
-        
+
         pages (None or list): Paths to each canvas image of the work ordered logically.
         api_key (Optional[str] or None): Your Claude API Key.
+        model (Optional[str] or None): Model to use (defaults to config)
         """
-        super().__init__(api_key)
+        super().__init__(api_key, model)
         self.pages = pages if pages is not None else []
-        self.model = model
         self.full_text, self.full_page_responses = self.get_page_text()
-        self.prompt = self.get_prompt("metadata.md").replace("[INSERT LETTER TEXT HERE]", self.full_text)
+        self.prompt = self.get_prompt("metadata", letter_text=self.full_text)
 
     def get_page_text(self):
         """Gets the HTR page text from Claude based on canvas images.
@@ -318,592 +328,129 @@ class ClaudeWork(ClaudeBase):
             full_response.append(claude_page_text[1])
         return "\n\n".join(just_the_text), full_response
     
-    def get_metadata(self, model: str = "claude-3-5-haiku-20241022"):
+    def get_metadata(self, model: Optional[str] = None):
         """Extracts Dublin Core metadata from the letter text
 
         Args:
-            model (str): The Claude Model to Use
-        
+            model (Optional[str]): The Claude Model to Use (defaults to self.model)
+
         Returns:
             tuple: str (the response from Claude), dict (the metadata)
 
         Example:
-            >>> ClaudeWork(["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]).get_metadata() 
+            >>> ClaudeWork(["test_files/amctrial_mcinnis_0004.jpg"]).get_metadata()
         """
         try:
+            model_to_use = model or self.model
+
             response = self.client.messages.create(
-                model=model,
-                # TODO: tokens should be defineable -- not hardcoded
-                max_tokens=2000,
+                model=model_to_use,
+                max_tokens=model_config.get_max_tokens('metadata'),
                 messages=[
                     {"role": "user", "content": self.prompt}
                 ]
             )
-            
+
             # Store the Cost
-            self._store_response_data(response, model)
+            self._store_response_data(response, model_to_use)
 
             response_text = response.content[0].text.strip()
-            
-            # Extract JSON from response (Claude might include explanatory text)
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                try:
-                    metadata = json.loads(json_str)
-                    metadata['filenames'] = self.pages
-                    return response_text, metadata
-                except json.JSONDecodeError as e:
-                    print(f"JSON decode error in metadata: {e}")
-                    return response_text, {"error": "Could not parse JSON response"}
-            else:
-                print("No JSON object found in metadata response")
-                return response_text, {"error": "No JSON object found in response"}
-                
+
+            # Parse response using unified parser (handles TOON format)
+            try:
+                metadata = self.parse_response(response_text, format_hint="toon")
+                metadata['filenames'] = self.pages
+                return response_text, metadata
+            except Exception as e:
+                print(f"Parse error in metadata: {e}")
+                return response_text, {"error": f"Could not parse response: {e}"}
+
         except Exception as e:
             print(f"Error getting metadata: {str(e)}")
             return "", {"error": str(e)}
     
-    def format_metadata_readable(self, metadata: Dict) -> str:
-        """Format Dublin Core metadata as human-readable report
-        
-        Args:
-            metadata(dict): The metadata from Claude as a dict
+    def save_metadata(self, metadata: Dict, output_path: str = "metadata"):
+        """Save metadata as JSON.
 
-        Returns:
-            str: The metadata output as a str separated by newlines.
-
-        Example:
-                >>> ClaudeWork(["test_files/amctrial_mcinnis_0004.jpg", "test_files/amctrial_mcinnis_0005.jpg"]).format_metadata_readable({
-                    "dublin_core": {
-                      "title": {
-                        "value": "Personal Letter from Bingley in Columbus, Texas, Describing Family Grief",
-                        "confidence": "high",
-                        "reasoning": "Derived from letter's content and personal narrative",
-                        "source_text": "Though I feel very little like writing you I much feel you the condition I am in"
-                    }})
-        """
-        if "error" in metadata:
-            return f"Error in metadata: {metadata['error']}"
-        
-        output = []
-        output.append("=" * 60)
-        output.append("DUBLIN CORE METADATA ANALYSIS")
-        output.append("=" * 60)
-        
-        # Core Dublin Core elements
-        dc = metadata.get('dublin_core', {})
-        
-        for element, data in dc.items():
-            if isinstance(data, dict) and data.get('value'):
-                output.append(f"\n{element.upper().replace('_', ' ')}:")
-                output.append(f"  Value: {data['value']}")
-                output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
-                if data.get('reasoning'):
-                    output.append(f"  Reasoning: {data['reasoning']}")
-                if data.get('source_text'):
-                    source_text = data['source_text']
-                    if len(source_text) > 100:
-                        source_text = source_text[:100] + "..."
-                    output.append(f"  Source: \"{source_text}\"")
-        
-        # Additional elements
-        additional = metadata.get('additional_elements', {})
-        if additional:
-            output.append(f"\n{'=' * 30}")
-            output.append("ADDITIONAL ELEMENTS:")
-            output.append(f"{'=' * 30}")
-            
-            for element, data in additional.items():
-                if isinstance(data, dict) and data.get('value'):
-                    output.append(f"\n{element.upper().replace('_', ' ')}:")
-                    output.append(f"  {data['value']} (confidence: {data.get('confidence', 'unknown')})")
-        
-        # Flags and warnings
-        flags = metadata.get('flags', {})
-        if any(flags.values()):
-            output.append(f"\n{'=' * 30}")
-            output.append("REVIEW REQUIRED:")
-            output.append(f"{'=' * 30}")
-            
-            for flag_type, items in flags.items():
-                if items:
-                    output.append(f"\n{flag_type.replace('_', ' ').title()}:")
-                    for item in items:
-                        output.append(f"  • {item}")
-        if 'filenames' in metadata:
-            output.append(f"\n{'=' * 30}")
-            output.append("SOURCE FILES:")
-            output.append(f"{'=' * 30}")
-            for filename in metadata['filenames']:
-                output.append(f"  • {filename}")
-        return "\n".join(output)
-    
-    def save_metadata(self, metadata: Dict, output_path: str = "metadata", formats: List[str] = ["json", "readable"]):
-        """Save metadata in various formats
-        
         Args:
             metadata (dict): The metadata from claude
             output_path (str): Where to save the metadata on disk
-            formats (list): The formats to save.
 
         Returns:
-            None
-        
+            str: Path to saved file
         """
         if "error" in metadata:
             print(f"Cannot save metadata due to error: {metadata['error']}")
-            return
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        if "json" in formats:
-            json_path = f"{output_path}_{timestamp}.json"
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(metadata, f, indent=2, ensure_ascii=False)
-            print(f"Saved JSON metadata to: {json_path}")
-        
-        if "readable" in formats:
-            readable_path = f"{output_path}_{timestamp}.txt"
-            readable_text = self.format_metadata_readable(metadata)
-            with open(readable_path, 'w', encoding='utf-8') as f:
-                f.write(readable_text)
-            print(f"Saved readable metadata to: {readable_path}")
-        
-        if "csv" in formats:
-            csv_path = f"{output_path}_{timestamp}.csv"
-            self._save_metadata_csv(metadata, csv_path)
-            print(f"Saved CSV metadata to: {csv_path}")
-    
-    def _save_metadata_csv(self, metadata: Dict, filepath: str):
-        """Helper method to save metadata as CSV
-        
-        Args:
-            metadata (dict): The metadata as a dict
-            filepath (str): The path to the csv on disk.
-        
-        Returns:
-            None
+            return None
 
-        """
-        
-        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['Element', 'Value', 'Confidence', 'Reasoning', 'Source_Text'])
-            
-            dc = metadata.get('dublin_core', {})
-            for element, data in dc.items():
-                if isinstance(data, dict) and data.get('value'):
-                    value = data['value']
-                    if isinstance(value, list):
-                        value = '; '.join(str(v) for v in value)
-                    
-                    writer.writerow([
-                        element,
-                        str(value),
-                        data.get('confidence', ''),
-                        data.get('reasoning', ''),
-                        data.get('source_text', '')
-                    ])
+        json_path = self.save_json(metadata, output_path)
+        print(f"Saved JSON metadata to: {json_path}")
+        return json_path
 
 
 class ClaudeAV(ClaudeBase):
+    """Class to represent Audio/Video with WebVTT transcripts for Claude analysis"""
+
     def __init__(
             self,
             vtt_file,
             api_key: Optional[str] = None,
-            model="claude-3-5-haiku-20241022"
+            model: Optional[str] = None
         ):
-        super().__init__(api_key)
-        self.model = model
-        self.full_text = self.get_full_text(
-            vtt_file
-            )
-        self.prompt = self.get_prompt(
-            "vtt-mods.md"
-        ).replace(
-            "[INSERT WEBVTT CONTENT HERE]",
-            self.full_text
-        )
-
+        super().__init__(api_key, model)
+        self.full_text = self.get_full_text(vtt_file)
+        self.prompt = self.get_prompt("vtt-mods", webvtt_content=self.full_text)
 
     def get_full_text(self, file_path):
         with open(file_path, 'r') as my_vtt:
             return my_vtt.read()
 
-    def get_metadata(self, model: str = "claude-3-5-haiku-20241022"):
+    def get_metadata(self, model: Optional[str] = None):
         try:
+            model_to_use = model or self.model
+
             response = self.client.messages.create(
-                model=model,
-                # TODO: tokens should be definable -- not hardcoded
-                max_tokens=4000,  # Increased for more complex MODS structure
+                model=model_to_use,
+                max_tokens=model_config.get_max_tokens('av'),
                 messages=[
                     {"role": "user", "content": self.prompt}
                 ]
             )
 
             # Store the Cost
-            self._store_response_data(response, model)
+            self._store_response_data(response, model_to_use)
 
             response_text = response.content[0].text.strip()
 
-            # Extract JSON from response since Claude might include explanatory text that will mess stuff up
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                try:
-                    metadata = json.loads(json_str)
-                    return response_text, metadata
-                except json.JSONDecodeError as e:
-                    print(f"JSON decode error in metadata: {e}")
-                    return response_text, {"error": "Could not parse JSON response"}
-            else:
-                print("No JSON object found in metadata response")
-                return response_text, {"error": "No JSON object found in response"}
+            # Parse response using unified parser (handles TOON format)
+            try:
+                metadata = self.parse_response(response_text, format_hint="toon")
+                return response_text, metadata
+            except Exception as e:
+                print(f"Parse error in metadata: {e}")
+                return response_text, {"error": f"Could not parse response: {e}"}
 
         except Exception as e:
             print(f"Error getting metadata: {str(e)}")
             return "", {"error": str(e)}
 
-    def format_metadata_readable(self, metadata: Dict) -> str:
-        if "error" in metadata:
-            return f"Error in metadata: {metadata['error']}"
-
-        output = []
-        output.append("=" * 60)
-        output.append("AVALON MODS METADATA ANALYSIS")
-        output.append("=" * 60)
-
-        content_analysis = metadata.get('content_analysis', {})
-        if content_analysis:
-            output.append(f"\nCONTENT ANALYSIS:")
-            output.append(f"  Media Type: {content_analysis.get('media_type', 'unknown')}")
-            output.append(f"  Content Category: {content_analysis.get('content_category', 'unknown')}")
-            output.append(f"  Duration Estimate: {content_analysis.get('duration_estimate', 'unknown')}")
-            output.append(f"  Primary Content: {content_analysis.get('primary_content_summary', 'N/A')}")
-
-            if content_analysis.get('speakers_identified'):
-                output.append(f"  Speakers: {', '.join(content_analysis['speakers_identified'])}")
-            if content_analysis.get('key_topics_mentioned'):
-                output.append(f"  Key Topics: {', '.join(content_analysis['key_topics_mentioned'])}")
-
-        avalon_mods = metadata.get('avalon_mods_metadata', {})
-
-        required_fields = avalon_mods.get('required_fields', {})
-        if required_fields:
-            output.append(f"\n{'=' * 30}")
-            output.append("REQUIRED FIELDS:")
-            output.append(f"{'=' * 30}")
-
-            for field, data in required_fields.items():
-                if isinstance(data, dict) and data.get('value'):
-                    output.append(f"\n{field.upper().replace('_', ' ')}:")
-                    output.append(f"  Value: {data['value']}")
-                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
-                    if data.get('reasoning'):
-                        output.append(f"  Reasoning: {data['reasoning']}")
-
-        core_descriptive = avalon_mods.get('core_descriptive', {})
-        if core_descriptive:
-            output.append(f"\n{'=' * 30}")
-            output.append("CORE DESCRIPTIVE FIELDS:")
-            output.append(f"{'=' * 30}")
-
-            for field, data in core_descriptive.items():
-                if isinstance(data, dict) and data.get('value'):
-                    output.append(f"\n{field.upper().replace('_', ' ')}:")
-                    value = data['value']
-                    if isinstance(value, list):
-                        value = '; '.join(str(v) for v in value)
-                    output.append(f"  Value: {value}")
-                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
-                    if data.get('authority'):
-                        output.append(f"  Authority: {data['authority']}")
-                    if data.get('reasoning'):
-                        output.append(f"  Reasoning: {data['reasoning']}")
-
-        subject_access = avalon_mods.get('subject_access', {})
-        if subject_access:
-            output.append(f"\n{'=' * 30}")
-            output.append("SUBJECT ACCESS:")
-            output.append(f"{'=' * 30}")
-
-            for field, data in subject_access.items():
-                if isinstance(data, dict) and data.get('value'):
-                    output.append(f"\n{field.upper().replace('_', ' ')}:")
-                    value = data['value']
-                    if isinstance(value, list):
-                        value = '; '.join(str(v) for v in value)
-                    output.append(f"  Value: {value}")
-                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
-                    if data.get('authority'):
-                        output.append(f"  Authority: {data['authority']}")
-
-        additional_fields = avalon_mods.get('additional_fields', {})
-        if additional_fields:
-            output.append(f"\n{'=' * 30}")
-            output.append("ADDITIONAL FIELDS:")
-            output.append(f"{'=' * 30}")
-
-            for field, data in additional_fields.items():
-                if field == 'notes' and isinstance(data, list):
-                    output.append(f"\nNOTES:")
-                    for note in data:
-                        if note.get('note_value'):
-                            output.append(f"  {note.get('note_type', 'general').title()}: {note['note_value']}")
-                elif isinstance(data, dict) and data.get('value'):
-                    output.append(f"\n{field.upper().replace('_', ' ')}:")
-                    output.append(f"  Value: {data['value']}")
-                    output.append(f"  Confidence: {data.get('confidence', 'unknown')}")
-
-        quality = metadata.get('quality_assessment', {})
-        if quality:
-            output.append(f"\n{'=' * 30}")
-            output.append("QUALITY ASSESSMENT:")
-            output.append(f"{'=' * 30}")
-
-            for field, value in quality.items():
-                if value:
-                    output.append(f"\n{field.replace('_', ' ').title()}:")
-                    if isinstance(value, list):
-                        for item in value:
-                            output.append(f"  • {item}")
-                    else:
-                        output.append(f"  {value}")
-
-        flags = metadata.get('validation_flags', {})
-        if any(flags.values()):
-            output.append(f"\n{'=' * 30}")
-            output.append("VALIDATION FLAGS:")
-            output.append(f"{'=' * 30}")
-
-            for flag_type, items in flags.items():
-                if items:
-                    output.append(f"\n{flag_type.replace('_', ' ').title()}:")
-                    for item in items:
-                        output.append(f"  • {item}")
-
-        return "\n".join(output)
-
-    def save_metadata(self, metadata: Dict, output_path: str = "metadata", formats: List[str] = ["json", "readable"]):
-        """Save metadata in various formats
+    def save_metadata(self, metadata: Dict, output_path: str = "metadata"):
+        """Save metadata as JSON.
 
         Args:
             metadata (dict): The metadata from claude
             output_path (str): Where to save the metadata on disk
-            formats (list): The formats to save.
 
         Returns:
-            None
-
+            str: Path to saved file
         """
         if "error" in metadata:
             print(f"Cannot save metadata due to error: {metadata['error']}")
-            return
+            return None
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        if "json" in formats:
-            json_path = f"{output_path}_{timestamp}.json"
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(metadata, f, indent=2, ensure_ascii=False)
-            print(f"Saved JSON metadata to: {json_path}")
-
-        if "readable" in formats:
-            readable_path = f"{output_path}_{timestamp}.txt"
-            readable_text = self.format_metadata_readable(metadata)
-            with open(readable_path, 'w', encoding='utf-8') as f:
-                f.write(readable_text)
-            print(f"Saved readable metadata to: {readable_path}")
-
-        if "csv" in formats:
-            csv_path = f"{output_path}_{timestamp}.csv"
-            self._save_metadata_csv(metadata, csv_path)
-            print(f"Saved CSV metadata to: {csv_path}")
-
-        if "avalon_batch" in formats:
-            batch_path = f"{output_path}_{timestamp}_avalon_batch.csv"
-            self._save_avalon_batch_csv(metadata, batch_path)
-            print(f"Saved Avalon batch CSV to: {batch_path}")
-
-    def _save_metadata_csv(self, metadata: Dict, filepath: str):
-        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['Section', 'Field', 'Value', 'Confidence', 'Authority', 'Reasoning'])
-
-            avalon_mods = metadata.get('avalon_mods_metadata', {})
-
-            sections = [
-                ('Required Fields', avalon_mods.get('required_fields', {})),
-                ('Core Descriptive', avalon_mods.get('core_descriptive', {})),
-                ('Subject Access', avalon_mods.get('subject_access', {})),
-                ('Additional Fields', avalon_mods.get('additional_fields', {}))
-            ]
-
-            for section_name, section_data in sections:
-                for field, data in section_data.items():
-                    if field == 'notes' and isinstance(data, list):
-                        for note in data:
-                            if note.get('note_value'):
-                                writer.writerow([
-                                    section_name,
-                                    f"note_{note.get('note_type', 'general')}",
-                                    note['note_value'],
-                                    note.get('confidence', ''),
-                                    '',
-                                    note.get('reasoning', '')
-                                ])
-                    elif isinstance(data, dict) and data.get('value'):
-                        value = data['value']
-                        if isinstance(value, list):
-                            value = '; '.join(str(v) for v in value)
-
-                        writer.writerow([
-                            section_name,
-                            field,
-                            str(value),
-                            data.get('confidence', ''),
-                            data.get('authority', ''),
-                            data.get('reasoning', '')
-                        ])
-
-    def _save_avalon_batch_csv(self, metadata: Dict, filepath: str):
-        """Save metadata in Avalon batch import CSV format"""
-        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            headers = [
-                'Title', 'Creator', 'Contributor', 'Genre', 'Publisher',
-                'Date Created', 'Date Issued', 'Abstract', 'Language',
-                'Physical Description', 'Series', 'Related Item Label', 'Related Item URL',
-                'Topical Subject', 'Geographic Subject', 'Temporal Subject',
-                'Table of Contents', 'Statement of Responsibility', 'Note', 'Note Type',
-                'Terms of Use'
-            ]
-
-            writer = csv.writer(csvfile)
-            writer.writerow(headers)
-
-            avalon_mods = metadata.get('avalon_mods_metadata', {})
-            required = avalon_mods.get('required_fields', {})
-            core = avalon_mods.get('core_descriptive', {})
-            subjects = avalon_mods.get('subject_access', {})
-            additional = avalon_mods.get('additional_fields', {})
-
-            def get_field_value(field_data):
-                if isinstance(field_data, dict):
-                    value = field_data.get('value', '')
-                    if isinstance(value, list):
-                        return '; '.join(str(v) for v in value)
-                    return str(value) if value else ''
-                return ''
-
-            row = [
-                get_field_value(required.get('title', {})),
-                get_field_value(core.get('main_contributor_creator', {})),
-                get_field_value(core.get('contributor', {})),
-                get_field_value(core.get('genre', {})),
-                get_field_value(core.get('publisher', {})),
-                get_field_value(core.get('creation_date', {})),
-                get_field_value(required.get('date_issued', {})),
-                get_field_value(core.get('summary_abstract', {})),
-                get_field_value(core.get('language', {})),
-                get_field_value(additional.get('physical_description', {})),
-                get_field_value(additional.get('series', {})),
-                get_field_value(subjects.get('topical_subject', {})),
-                get_field_value(subjects.get('geographic_subject', {})),
-                get_field_value(subjects.get('temporal_subject', {})),
-                get_field_value(additional.get('table_of_contents', {})),
-                get_field_value(additional.get('statement_of_responsibility', {})),
-                '',  #TODO: Note - would need to combine multiple notes
-                '',  #TODO: Note Type - would need to handle multiple note types
-            ]
-            #TODO: Update original prompt to not include stuff we don't need to reduce tokens.
-            # Handle notes specially (combine into single field for simplicity)
-            notes_data = additional.get('notes', [])
-            if notes_data and isinstance(notes_data, list):
-                note_texts = []
-                note_types = []
-                for note in notes_data:
-                    if note.get('note_value'):
-                        note_texts.append(note['note_value'])
-                        note_types.append(note.get('note_type', 'general'))
-
-                if note_texts:
-                    row[-3] = ' | '.join(note_texts)  # Note field
-                    row[-2] = ' | '.join(note_types)  # Note Type field
-
-            writer.writerow(row)
-
-    def get_avalon_batch_template(self) -> Dict[str, str]:
-        """Return a template dictionary for Avalon batch import"""
-        return {
-            'Title': '',
-            'Creator': '',
-            'Contributor': '',
-            'Genre': '',
-            'Publisher': '',
-            'Date Created': '',
-            'Date Issued': '',
-            'Abstract': '',
-            'Language': '',
-            'Physical Description': '',
-            'Series': '',
-            'Related Item Label': '',
-            'Related Item URL': '',
-            'Topical Subject': '',
-            'Geographic Subject': '',
-            'Temporal Subject': '',
-            'Table of Contents': '',
-            'Statement of Responsibility': '',
-            'Note': '',
-            'Note Type': '',
-            'Terms of Use': ''
-        }
-
-    def extract_avalon_fields(self, metadata: Dict) -> Dict[str, str]:
-        """Extract metadata into Avalon field format for easier processing"""
-        if "error" in metadata:
-            return {"error": metadata["error"]}
-
-        avalon_fields = self.get_avalon_batch_template()
-        avalon_mods = metadata.get('avalon_mods_metadata', {})
-
-        required = avalon_mods.get('required_fields', {})
-        core = avalon_mods.get('core_descriptive', {})
-        subjects = avalon_mods.get('subject_access', {})
-        additional = avalon_mods.get('additional_fields', {})
-
-        def extract_value(field_data):
-            if isinstance(field_data, dict):
-                value = field_data.get('value', '')
-                if isinstance(value, list):
-                    return '; '.join(str(v) for v in value)
-                return str(value) if value else ''
-            return ''
-
-        field_mapping = {
-            'Title': extract_value(required.get('title', {})),
-            'Creator': extract_value(core.get('main_contributor_creator', {})),
-            'Contributor': extract_value(core.get('contributor', {})),
-            'Genre': extract_value(core.get('genre', {})),
-            'Publisher': extract_value(core.get('publisher', {})),
-            'Date Created': extract_value(core.get('creation_date', {})),
-            'Date Issued': extract_value(required.get('date_issued', {})),
-            'Abstract': extract_value(core.get('summary_abstract', {})),
-            'Language': extract_value(core.get('language', {})),
-            'Physical Description': extract_value(additional.get('physical_description', {})),
-            'Series': extract_value(additional.get('series', {})),
-            'Topical Subject': extract_value(subjects.get('topical_subject', {})),
-            'Geographic Subject': extract_value(subjects.get('geographic_subject', {})),
-            'Temporal Subject': extract_value(subjects.get('temporal_subject', {})),
-            'Table of Contents': extract_value(additional.get('table_of_contents', {})),
-            'Statement of Responsibility': extract_value(additional.get('statement_of_responsibility', {}))
-        }
-
-        for field, value in field_mapping.items():
-            if value:
-                avalon_fields[field] = value
-
-        return avalon_fields
+        json_path = self.save_json(metadata, output_path)
+        print(f"Saved JSON metadata to: {json_path}")
+        return json_path
     
 
 class ClaudeImage(ClaudeBase):
@@ -916,37 +463,33 @@ class ClaudeImage(ClaudeBase):
         prompt (str): The formatted Claude prompt with metadata inserted.
     
     """
-    def __init__(self, image_path: str = None, existing_metadata: str = "", 
-                 material_type: str = "IMAGE", api_key: Optional[str] = None, 
-                 model="claude-3-5-haiku-20241022"):
+    def __init__(self, image_path: str = None, existing_metadata: str = "",
+                 material_type: str = "IMAGE", api_key: Optional[str] = None,
+                 model: Optional[str] = None):
         """Generates a Claude Image analysis object.
-        
+
         Args:
             image_path (str): Path to the image file (optional, for reference).
             existing_metadata (str): The existing metadata text to analyze.
             material_type (str): Type of material - MAP, PHOTOGRAPH, DRAWING, PAINTING, PRINT, etc.
             api_key (Optional[str] or None): Your Claude API Key.
-            model (str): Claude model to use.
+            model (Optional[str]): Claude model to use (defaults to config).
         """
-        super().__init__(api_key)
+        super().__init__(api_key, model)
         self.image_path = image_path
         self.existing_metadata = existing_metadata
         self.material_type = material_type.upper()
-        self.model = model
         self.prompt = self._format_prompt()
 
     def _format_prompt(self):
         """Format the prompt with existing metadata and material type
-        
+
         Returns:
             str: The formatted prompt ready for Claude
         """
-        prompt_template = self.get_prompt("maps.md")
-        
-        formatted_prompt = prompt_template.replace("[INSERT EXISTING METADATA HERE]", self.existing_metadata)
-        formatted_prompt = formatted_prompt.replace("[MAP | PHOTOGRAPH | DRAWING | PAINTING | PRINT | OTHER IMAGE TYPE]", self.material_type)
-        
-        return formatted_prompt
+        return self.get_prompt("maps",
+                              existing_metadata=self.existing_metadata,
+                              material_type=self.material_type)
 
     def load_metadata_from_file(self, filepath: str, encoding: str = 'utf-8'):
         """Load existing metadata from a file
@@ -1021,7 +564,7 @@ class ClaudeImage(ClaudeBase):
             
             response = self.client.messages.create(
                 model=model,
-                max_tokens=3000,
+                max_tokens=model_config.get_max_tokens('image'),
                 messages=[
                     {
                         "role": "user",
@@ -1042,23 +585,18 @@ class ClaudeImage(ClaudeBase):
                     }
                 ]
             )
-            
+
             self._store_response_data(response, model)
 
             response_text = response.content[0].text.strip()
-            
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                try:
-                    metadata = json.loads(json_str)
-                    return response_text, metadata
-                except json.JSONDecodeError as e:
-                    print(f"JSON decode error in metadata: {e}")
-                    return response_text, {"error": "Could not parse JSON response"}
-            else:
-                print("No JSON object found in metadata response")
-                return response_text, {"error": "No JSON object found in response"}
+
+            # Parse response using unified parser (handles TOON format)
+            try:
+                metadata = self.parse_response(response_text, format_hint="toon")
+                return response_text, metadata
+            except Exception as e:
+                print(f"Parse error in metadata: {e}")
+                return response_text, {"error": f"Could not parse response: {e}"}
                 
         except Exception as e:
             print(f"Error analyzing image {image_path}: {str(e)}")
@@ -1095,20 +633,15 @@ class ClaudeImage(ClaudeBase):
             self._store_response_data(response, model)
 
             response_text = response.content[0].text.strip()
-            
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                try:
-                    metadata = json.loads(json_str)
-                    return response_text, metadata
-                except json.JSONDecodeError as e:
-                    print(f"JSON decode error in metadata: {e}")
-                    return response_text, {"error": "Could not parse JSON response"}
-            else:
-                print("No JSON object found in metadata response")
-                return response_text, {"error": "No JSON object found in response"}
-                
+
+            # Parse response using unified parser (handles TOON format)
+            try:
+                metadata = self.parse_response(response_text, format_hint="toon")
+                return response_text, metadata
+            except Exception as e:
+                print(f"Parse error in metadata: {e}")
+                return response_text, {"error": f"Could not parse response: {e}"}
+
         except Exception as e:
             print(f"Error getting metadata analysis: {str(e)}")
             return "", {"error": str(e)}
@@ -1371,21 +904,16 @@ Focus on what can be directly observed in the image."""
             self._store_response_data(response, model)
 
             response_text = response.content[0].text.strip()
-            
-            # Extract JSON from response
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                try:
-                    analysis = json.loads(json_str)
-                    return response_text, analysis
-                except json.JSONDecodeError as e:
-                    print(f"JSON decode error in analysis: {e}")
-                    return response_text, {"error": "Could not parse JSON response"}
-            else:
-                print("No JSON object found in analysis response")
-                return response_text, {"error": "No JSON object found in response"}
-                
+
+
+            # Parse response using unified parser (handles TOON format)
+            try:
+                analysis = self.parse_response(response_text, format_hint="toon")
+                return response_text, analysis
+            except Exception as e:
+                print(f"Parse error in analysis: {e}")
+                return response_text, {"error": f"Could not parse response: {e}"}
+
         except Exception as e:
             print(f"Error analyzing image {image_path}: {str(e)}")
             return "", {"error": str(e)}
@@ -1591,19 +1119,13 @@ class ClaudeArticle(ClaudeBase):
 
             response_text = response.content[0].text.strip()
 
-            # Extract JSON from response
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                try:
-                    metadata = json.loads(json_str)
-                    return response_text, metadata
-                except json.JSONDecodeError as e:
-                    print(f"JSON decode error in metadata: {e}")
-                    return response_text, {"error": "Could not parse JSON response"}
-            else:
-                print("No JSON object found in metadata response")
-                return response_text, {"error": "No JSON object found in response"}
+            # Parse response using unified parser (handles TOON format)
+            try:
+                metadata = self.parse_response(response_text, format_hint="toon")
+                return response_text, metadata
+            except Exception as e:
+                print(f"Parse error in metadata: {e}")
+                return response_text, {"error": f"Could not parse response: {e}"}
 
         except Exception as e:
             print(f"Error analyzing article {image_path}: {str(e)}")

@@ -1,6 +1,6 @@
 # Article Subject and Creator Analysis Prompt
 
-You are an expert metadata librarian specializing in scholarly articles and academic publications. Your task is to 
+You are an expert metadata librarian specializing in scholarly articles and academic publications. Your task is to
 analyze the provided article first page and abstract to suggest creators and OCLC FAST subject headings.
 
 **Warning**: The page image may include other articles. If so, only use the text related to the article in question.
@@ -28,79 +28,61 @@ analyze the provided article first page and abstract to suggest creators and OCL
 **Subject:** [Research topics, methodologies, geographic locations, temporal periods - use exact OCLC FAST headings with appropriate facets]
 
 ## Output Format:
-Respond with valid JSON in the following structure:
+Respond in TOON (Token Object Notation) format for efficiency:
 
-```json
-{
-  "creator": {
-    "personal_creators": [
-      {
-        "name": "Last, First Middle",
-        "name_format": "inverted|direct",
-        "confidence": "high|medium|low",
-        "reasoning": "explanation"
-      }
-    ],
-    "source_metadata": "author byline location"
-  },
-  "subject": {
-    "fast_headings": [
-      {
-        "term": "exact FAST heading",
-        "facet": "Topical|Geographic|Chronological|Form|Personal|Corporate",
-        "fast_id": "fst00000000 (if known)",
-        "confidence": "high|medium|low",
-        "reasoning": "explanation of why this term was selected",
-        "source_in_text": "where concept appears in abstract/article"
-      }
-    ],
-    "alternative_headings": [
-      {
-        "term": "other possible FAST terms considered",
-        "reason_not_selected": "explanation"
-      }
-    ],
-    "authorization_uncertain": ["headings where exact authorized format is uncertain"],
-    "source_metadata": "abstract content and keywords"
-  },
-  "fast_analysis": {
-    "topical_facet": {
-      "terms": ["FAST Topical headings identified"],
-      "primary_concepts": ["main research topics"],
-      "secondary_concepts": ["related topics"],
-      "confidence": "high|medium|low"
-    },
-    "geographic_facet": {
-      "terms": ["FAST Geographic headings identified"],
-      "geographic_scope": "description of spatial coverage",
-      "confidence": "high|medium|low"
-    },
-    "chronological_facet": {
-      "terms": ["FAST Chronological headings identified"],
-      "temporal_scope": "description of time period coverage",
-      "confidence": "high|medium|low"
-    },
-    "form_facet": {
-      "terms": ["FAST Form/Genre headings if applicable"],
-      "confidence": "high|medium|low"
-    },
-    "personal_facet": {
-      "terms": ["FAST Personal name headings if applicable"],
-      "confidence": "high|medium|low"
-    },
-    "corporate_facet": {
-      "terms": ["FAST Corporate name headings if applicable"],
-      "confidence": "high|medium|low"
-    }
-  },
-  "flags": {
-    "uncertain_attributions": ["questionable creator assignments or institutional affiliations"],
-    "uncertain_fast_terms": ["FAST terms that may need verification"],
-    "missing_geographic_data": ["spatial coverage that needs verification"],
-    "missing_temporal_data": ["temporal coverage that needs verification"],
-    "requires_external_research": ["elements needing verification beyond first page/abstract"]
-  }
-}
+```
+creator|
+  personal_creators|
+    name: Last, First Middle
+    format: inverted|direct
+    conf: high|medium|low
+    why: explanation
+  src: author byline location
+
+subject|
+  fast_headings|
+    term: exact FAST heading
+    facet: Topical|Geographic|Chronological|Form|Personal|Corporate
+    fast_id: fst00000000 (if known)
+    conf: high|medium|low
+    why: explanation of why this term was selected
+    src: where concept appears in abstract/article
+  alt|
+    term: other possible FAST terms considered
+    why_not: reason not selected
+  uncertain: [headings where exact authorized format is uncertain]
+  src: abstract content and keywords
+
+fast_analysis|
+  topical|
+    terms: [FAST Topical headings identified]
+    primary: [main research topics]
+    secondary: [related topics]
+    conf: high|medium|low
+  geographic|
+    terms: [FAST Geographic headings identified]
+    scope: description of spatial coverage
+    conf: high|medium|low
+  chronological|
+    terms: [FAST Chronological headings identified]
+    scope: description of time period coverage
+    conf: high|medium|low
+  form|
+    terms: [FAST Form/Genre headings if applicable]
+    conf: high|medium|low
+  personal|
+    terms: [FAST Personal name headings if applicable]
+    conf: high|medium|low
+  corporate|
+    terms: [FAST Corporate name headings if applicable]
+    conf: high|medium|low
+
+flags|
+  uncertain_attributions: [questionable creator assignments or institutional affiliations]
+  uncertain_fast: [FAST terms that may need verification]
+  missing_geo_data: [spatial coverage that needs verification]
+  missing_temporal_data: [temporal coverage that needs verification]
+  needs_research: [elements needing verification beyond first page/abstract]
 ```
 
 ## Special Considerations for FAST Subject Analysis:
